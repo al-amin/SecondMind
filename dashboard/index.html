@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>SecondMind</title>
+  <style>
+    body { font-family: -apple-system, system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    input { width: 100%; padding: 0.5rem; font-size: 1rem; box-sizing: border-box; }
+    ul { list-style: none; padding: 0; }
+    li { padding: 0.5rem 0; border-bottom: 1px solid #eee; cursor: pointer; }
+    li:hover { background: #f7f7f7; }
+    #note-view { white-space: pre-wrap; border: 1px solid #ddd; padding: 1rem; margin-top: 1rem; display: none; }
+  </style>
+</head>
+<body>
+  <h1>SecondMind</h1>
+  <p>One memory. Every AI. Any machine. Read-only browser.</p>
+  <input id="search-box" type="text" placeholder="Search your memory..." />
+  <ul id="results"></ul>
+  <pre id="note-view"></pre>
+  <script src="app.js"></script>
+</body>
+</html>

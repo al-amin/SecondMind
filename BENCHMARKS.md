@@ -62,6 +62,13 @@ requirement. If real-world usage reaches this scale and the latency becomes noti
 documented extension point (SPEC.md §9: pluggable embedder / index backend) is the correct
 place to revisit — not a premature optimization now with no evidence of real need (YAGNI gate).
 
+## Post-dashboard regression check
+
+Re-ran after adding the read-only dashboard (Phase 15) — numbers are consistent with the
+pre-dashboard baseline above (search p95 at 10k: 85.8ms vs. 95.8ms, within normal run-to-run
+variance; put/search latency otherwise unchanged). Confirms the dashboard's read-only SQLite
+queries don't share a hot path with `put`/`search` in a way that would regress them.
+
 ## Rebuild/export/import — reported, not gated
 
 These scale roughly linearly with vault size, as expected for full-corpus operations. Full
