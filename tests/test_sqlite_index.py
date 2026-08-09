@@ -1,0 +1,121 @@
+"""Tests for secondmind.sqlite_index — the disposable/rebuildable FTS5 index.
+
+Traces to SPEC.md §2 (concurrency: WAL + busy_timeout, atomic rebuild) and
+§3 (hybrid BM25 + cosine search, RRF fusion). The index is never the only
+place a fact lives — it can be deleted and rebuilt from the vault at any
+time (verified by test_rebuild_from_items_replaces_prior_content).
+"""
+
+from __future__ import annotations
+
+import tempfile
+import unittest
+from pathlib import Path
+
+from secondmind.models import KnowledgeItem, KnowledgeType
+from secondmind.sqlite_index import SqliteIndex
+
+
+def _item(id: str, title: str, body: str, type: KnowledgeType = KnowledgeType.SEMANTIC) -> KnowledgeItem:
+    return KnowledgeItem(
+        id=id,
+        type=type,
+        title=title,
+        body=body,
+        created="2026-08-09T00:00:00Z",
+        updated="2026-08-09T00:00:00Z",
+    )
+
+
+class TestSqliteIndexBasicSearch(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.db_path = Path(self._tmp.name) / "index.db"
+        self.index = SqliteIndex(self.db_path)
+
+    def tearDown(self) -> None:
+        self.index.close()
+        self._tmp.cleanup()
+
+    def test_put_then_search_finds_the_note_by_exact_word(self) -> None:
+        self.index.put(_item("a", "Kubernetes Guide", "How to deploy pods safely"))
+        results = self.index.search("kubernetes")
+        self.assertIn("a", results)
+
+    def test_search_on_empty_index_returns_empty(self) -> None:
+        self.assertEqual(self.index.search("anything"), [])
+
+    def test_search_empty_query_returns_empty_not_a_crash(self) -> None:
+        self.index.put(_item("a", "Title", "Body"))
+        self.assertEqual(self.index.search(""), [])
+
+    def test_put_twice_with_same_id_updates_not_duplicates(self) -> None:
+        self.index.put(_item("a", "First", "original content"))
+        self.index.put(_item("a", "First Updated", "revised content"))
+        results = self.index.search("revised")
+        self.assertEqual(results.count("a"), 1)
+
+    def test_delete_removes_from_search_results(self) -> None:
+        self.index.put(_item("a", "Removable", "unique searchable term xylophone"))
+        self.index.delete("a")
+        self.assertEqual(self.index.search("xylophone"), [])
+
+    def test_search_ranks_more_relevant_result_first(self) -> None:
+        self.index.put(_item("a", "Off Topic", "something about gardening"))
+        self.index.put(_item("b", "On Topic", "python python python programming python"))
+        results = self.index.search("python")
+        self.assertEqual(results[0], "b")
+
+    def test_search_is_typo_tolerant_via_dense_fallback(self) -> None:
+        self.index.put(_item("a", "Note", "knowledge management system design"))
+        results = self.index.search("knowledg managment")  # typos, no exact BM25 hit
+        self.assertIn("a", results)
+
+    def test_search_respects_limit(self) -> None:
+        for i in range(5):
+            self.index.put(_item(f"note-{i}", f"Note {i}", "shared searchable keyword"))
+        results = self.index.search("shared", limit=2)
+        self.assertEqual(len(results), 2)
+
+
+class TestSqliteIndexRebuild(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.db_path = Path(self._tmp.name) / "index.db"
+        self.index = SqliteIndex(self.db_path)
+
+    def tearDown(self) -> None:
+        self.index.close()
+        self._tmp.cleanup()
+
+    def test_rebuild_from_items_replaces_prior_content(self) -> None:
+        self.index.put(_item("stale", "Stale Note", "old unique term marmoset"))
+        self.index.rebuild([_item("fresh", "Fresh Note", "new unique term giraffe")])
+        self.assertEqual(self.index.search("marmoset"), [])
+        self.assertIn("fresh", self.index.search("giraffe"))
+
+    def test_rebuild_on_corrupt_or_missing_db_recovers_cleanly(self) -> None:
+        self.db_path.write_bytes(b"not a real sqlite file")
+        recovering_index = SqliteIndex(self.db_path)
+        recovering_index.rebuild([_item("a", "A", "content")])
+        self.assertIn("a", recovering_index.search("content"))
+        recovering_index.close()
+
+
+class TestSqliteIndexConcurrency(unittest.TestCase):
+    def test_two_index_handles_can_read_and_write_the_same_db_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "shared.db"
+            writer = SqliteIndex(db_path)
+            reader = SqliteIndex(db_path)
+            try:
+                writer.put(_item("a", "Shared", "concurrent access term"))
+                results = reader.search("concurrent")
+                self.assertIn("a", results)
+            finally:
+                writer.close()
+                reader.close()
+
+
+if __name__ == "__main__":
+    unittest.main()
