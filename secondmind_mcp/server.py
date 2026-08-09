@@ -21,10 +21,18 @@ from __future__ import annotations
 import asyncio
 import json
 
-from mcp.server.lowlevel import Server
+from mcp.server import Server, ServerRequestContext
 from mcp.server.stdio import stdio_server
-from mcp.shared.exceptions import McpError
-from mcp.types import INVALID_PARAMS, ErrorData, TextContent, Tool
+from mcp.shared.exceptions import MCPError
+from mcp.types import (
+    INVALID_PARAMS,
+    CallToolRequestParams,
+    CallToolResult,
+    ListToolsResult,
+    PaginatedRequestParams,
+    TextContent,
+    Tool,
+)
 
 from secondmind.models import KnowledgeType
 from secondmind.paths import InvalidNoteIdError, default_index_db, default_vault_root
@@ -39,7 +47,7 @@ TOOLS: list[Tool] = [
     Tool(
         name="secondmind_put",
         description="Create or update a note in SecondMind's memory.",
-        inputSchema={
+        input_schema={
             "$schema": _SCHEMA,
             "type": "object",
             "properties": {
@@ -57,7 +65,7 @@ TOOLS: list[Tool] = [
     Tool(
         name="secondmind_get",
         description="Retrieve one note by id from SecondMind's memory.",
-        inputSchema={
+        input_schema={
             "$schema": _SCHEMA,
             "type": "object",
             "properties": {"id": {"type": "string"}},
@@ -67,7 +75,7 @@ TOOLS: list[Tool] = [
     Tool(
         name="secondmind_search",
         description="Hybrid BM25+semantic search over SecondMind's memory.",
-        inputSchema={
+        input_schema={
             "$schema": _SCHEMA,
             "type": "object",
             "properties": {
@@ -81,7 +89,7 @@ TOOLS: list[Tool] = [
     Tool(
         name="secondmind_list",
         description="List notes in SecondMind's memory, optionally filtered by type/tag.",
-        inputSchema={
+        input_schema={
             "$schema": _SCHEMA,
             "type": "object",
             "properties": {
@@ -93,12 +101,12 @@ TOOLS: list[Tool] = [
     Tool(
         name="secondmind_export",
         description="Export the entire SecondMind vault as a portable bundle.",
-        inputSchema={"$schema": _SCHEMA, "type": "object", "properties": {}},
+        input_schema={"$schema": _SCHEMA, "type": "object", "properties": {}},
     ),
     Tool(
         name="secondmind_import",
         description="Import a portable bundle into SecondMind's memory.",
-        inputSchema={
+        input_schema={
             "$schema": _SCHEMA,
             "type": "object",
             "properties": {
@@ -111,8 +119,8 @@ TOOLS: list[Tool] = [
 ]
 
 
-def _invalid_params(message: str) -> McpError:
-    return McpError(ErrorData(code=INVALID_PARAMS, message=message))
+def _invalid_params(message: str) -> MCPError:
+    return MCPError(INVALID_PARAMS, message)
 
 
 def dispatch_tool_call(
@@ -192,20 +200,46 @@ def dispatch_tool_call(
     raise _invalid_params(f"unknown tool: {name}")
 
 
+async def _handle_list_tools(
+    ctx: ServerRequestContext, params: PaginatedRequestParams | None
+) -> ListToolsResult:
+    return ListToolsResult(tools=TOOLS)
+
+
+async def _handle_call_tool(
+    ctx: ServerRequestContext, params: CallToolRequestParams
+) -> CallToolResult:
+    """Dispatch one tool call, converting exceptions to CallToolResult ourselves.
+
+    v2 no longer auto-wraps a raised exception into an error-flagged tool
+    result (SPEC.md §10.1) — MCPError is allowed to propagate (it becomes a
+    protocol-level JSON-RPC error, matching the -32602 contract in §6),
+    but any other exception must be caught here and returned as
+    ``CallToolResult(is_error=True, ...)`` so the calling LLM still sees it
+    as a tool result rather than a raw connection error.
+    """
+    try:
+        result = dispatch_tool_call(params.name, params.arguments or {})
+        return CallToolResult(
+            content=[TextContent(type="text", text=json.dumps(result))],
+            is_error=False,
+        )
+    except MCPError:
+        raise
+    except Exception as exc:
+        return CallToolResult(
+            content=[TextContent(type="text", text=str(exc))],
+            is_error=True,
+        )
+
+
 def build_server() -> Server:
     """Construct the low-level MCP server with all 6 tools registered, stateless."""
-    server = Server("secondmind")
-
-    @server.list_tools()
-    async def list_tools() -> list[Tool]:
-        return TOOLS
-
-    @server.call_tool()
-    async def call_tool(name: str, arguments: dict) -> list[TextContent]:
-        result = dispatch_tool_call(name, arguments)
-        return [TextContent(type="text", text=json.dumps(result))]
-
-    return server
+    return Server(
+        "secondmind",
+        on_list_tools=_handle_list_tools,
+        on_call_tool=_handle_call_tool,
+    )
 
 
 async def _run_stdio() -> None:

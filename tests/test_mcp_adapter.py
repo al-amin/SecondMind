@@ -1,12 +1,12 @@
 """Tests for secondmind_mcp.server — the stateless MCP tool adapter.
 
-Traces to SPEC.md §6. Every tool call resolves the vault/index path fresh
-(no session object holds state between calls — verified by
-test_no_state_persists_between_independent_calls). Not-found/bad-argument
-errors use McpError with INVALID_PARAMS (-32602), the current standard
-code. These tests call the adapter's dispatch function directly (in-process)
-— scripts/live_probe.py separately proves the same behavior over a real
-stdio subprocess.
+Traces to SPEC.md §6 and §10 (v2 mcp 2.0.0 port). Every tool call resolves
+the vault/index path fresh (no session object holds state between calls —
+verified by test_no_state_persists_between_independent_calls).
+Not-found/bad-argument errors use MCPError with INVALID_PARAMS (-32602),
+the current standard code. These tests call the adapter's dispatch
+function directly (in-process) — scripts/live_probe.py separately proves
+the same behavior over a real stdio subprocess.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from mcp.shared.exceptions import McpError
+from mcp.shared.exceptions import MCPError
 from mcp.types import INVALID_PARAMS
 
 from secondmind_mcp.server import TOOLS, dispatch_tool_call
@@ -54,8 +54,8 @@ class TestToolRegistry(unittest.TestCase):
 
     def test_every_tool_has_a_json_schema_2020_12_input_schema(self) -> None:
         for tool in TOOLS:
-            self.assertIn("$schema", tool.inputSchema)
-            self.assertIn("2020-12", tool.inputSchema["$schema"])
+            self.assertIn("$schema", tool.input_schema)
+            self.assertIn("2020-12", tool.input_schema["$schema"])
 
 
 class TestSecondmindPut(McpAdapterTestCase):
@@ -69,9 +69,9 @@ class TestSecondmindPut(McpAdapterTestCase):
         self.assertIn("updated", result)
 
     def test_put_rejects_invalid_type_via_schema_enum(self) -> None:
-        with self.assertRaises(McpError) as ctx:
+        with self.assertRaises(MCPError) as ctx:
             self._call("secondmind_put", {"type": "not-a-type", "title": "X", "body": "x"})
-        self.assertEqual(ctx.exception.error.code, INVALID_PARAMS)
+        self.assertEqual(ctx.exception.code, INVALID_PARAMS)
 
 
 class TestSecondmindGet(McpAdapterTestCase):
@@ -82,9 +82,9 @@ class TestSecondmindGet(McpAdapterTestCase):
         self.assertEqual(result["body"], "B")
 
     def test_get_missing_note_raises_invalid_params(self) -> None:
-        with self.assertRaises(McpError) as ctx:
+        with self.assertRaises(MCPError) as ctx:
             self._call("secondmind_get", {"id": "does-not-exist"})
-        self.assertEqual(ctx.exception.error.code, INVALID_PARAMS)
+        self.assertEqual(ctx.exception.code, INVALID_PARAMS)
 
 
 class TestSecondmindSearch(McpAdapterTestCase):
@@ -159,9 +159,9 @@ class TestStatelessness(McpAdapterTestCase):
             self.assertEqual(result["items"], [])
 
     def test_unknown_tool_name_raises_invalid_params(self) -> None:
-        with self.assertRaises(McpError) as ctx:
+        with self.assertRaises(MCPError) as ctx:
             self._call("not_a_real_tool", {})
-        self.assertEqual(ctx.exception.error.code, INVALID_PARAMS)
+        self.assertEqual(ctx.exception.code, INVALID_PARAMS)
 
 
 if __name__ == "__main__":
