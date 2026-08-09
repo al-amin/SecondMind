@@ -17,6 +17,7 @@ from pathlib import Path
 
 from secondmind.models import KnowledgeType
 from secondmind.paths import InvalidNoteIdError, default_index_db, default_vault_root
+from secondmind.portability import export_bundle, import_bundle
 from secondmind.sqlite_index import SqliteIndex
 from secondmind.store import NoteNotFoundError, VaultStore
 
@@ -134,29 +135,15 @@ def run(argv: list[str], env: dict[str, str] | None = None) -> int:
             return 0
 
         if args.command == "export":
-            items = [_item_to_dict(item) for item in store.list()]
-            bundle = {"schema_version": 1, "count": len(items), "items": items}
+            bundle = export_bundle(store)
             Path(args.output).write_text(json.dumps(bundle, indent=2), encoding="utf-8")
-            print(json.dumps({"count": len(items), "output": args.output}))
+            print(json.dumps({"count": bundle["count"], "output": args.output}))
             return 0
 
         if args.command == "import":
             bundle = json.loads(Path(args.path).read_text(encoding="utf-8"))
-            imported = 0
-            for entry in bundle.get("items", []):
-                if not args.dry_run:
-                    body = entry.get("body", "")
-                    store.put(
-                        id=entry["id"],
-                        type=KnowledgeType.from_str(entry["type"]),
-                        title=entry["title"],
-                        body=body,
-                        scope=entry.get("scope", ""),
-                        tags=entry.get("tags", []),
-                        ttl_days=entry.get("ttl_days"),
-                    )
-                imported += 1
-            print(json.dumps({"imported": imported, "dry_run": args.dry_run}))
+            result = import_bundle(store, bundle, dry_run=args.dry_run)
+            print(json.dumps({**result, "dry_run": args.dry_run}))
             return 0
 
         if args.command == "rebuild":
