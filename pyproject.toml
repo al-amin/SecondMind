@@ -8,14 +8,12 @@ license = { file = "LICENSE" }
 dependencies = []
 
 [project.optional-dependencies]
-# Pinned to the 1.x line the adapter was built and live-probed against.
-# mcp 2.0.0 is a breaking rewrite of the low-level server API (Server no
-# longer exposes list_tools()/call_tool() decorators or a matching
-# run(read_stream, write_stream, ...) signature — it's a different shape
-# entirely, likely built around Streamable HTTP as the default transport).
-# Porting secondmind_mcp/server.py to that API is real, deliberate future
-# work, not a version-string bump — see the v2 roadmap in README.md.
-mcp = ["mcp>=1.2,<2.0"]
+# v2: ported to the mcp 2.0.0 API (SPEC.md section 10) — the low-level
+# Server's on_list_tools/on_call_tool constructor kwargs, MCPError's new
+# signature, and the CallToolResult(is_error=True) exception-handling
+# contract. Verified against a real mcp==2.0.0 install (see ROADMAP.md
+# item 1); the v1 tag/main branch stays pinned to the pre-2.0 line.
+mcp = ["mcp>=2.0"]
 
 [project.scripts]
 secondmind = "secondmind.__main__:main"
