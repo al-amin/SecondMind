@@ -8,9 +8,11 @@ time (verified by test_rebuild_from_items_replaces_prior_content).
 
 from __future__ import annotations
 
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from secondmind.models import KnowledgeItem, KnowledgeType
 from secondmind.sqlite_index import SqliteIndex
@@ -93,6 +95,48 @@ class TestSqliteIndexRebuild(unittest.TestCase):
         self.index.rebuild([_item("fresh", "Fresh Note", "new unique term giraffe")])
         self.assertEqual(self.index.search("marmoset"), [])
         self.assertIn("fresh", self.index.search("giraffe"))
+
+    def test_open_never_leaves_a_dangling_handle_that_would_block_unlink_on_windows(
+        self,
+    ) -> None:
+        # Deterministic version of the windows-latest bug: unlink a path
+        # that sqlite3.Connection still holds a live handle to raises
+        # PermissionError on Windows (POSIX allows it, so this can't be
+        # observed directly on this dev machine). Simulating unlink's
+        # Windows behavior with a mock proves _open() actually closes its
+        # connection before propagating a failure, regardless of which OS
+        # runs the test.
+        corrupt_db_path = Path(self._tmp.name) / "corrupt-handle-check.db"
+        corrupt_db_path.write_bytes(b"not a real sqlite file")
+
+        real_connect = sqlite3.connect
+        opened_connections = []
+
+        def tracking_connect(*args, **kwargs):
+            connection = real_connect(*args, **kwargs)
+            opened_connections.append(connection)
+            return connection
+
+        real_unlink = Path.unlink
+
+        def windows_style_unlink(self, missing_ok=False):
+            for connection in opened_connections:
+                try:
+                    connection.execute("SELECT 1")
+                    raise PermissionError(
+                        "simulated WinError 32: file still has an open handle"
+                    )
+                except sqlite3.ProgrammingError:
+                    continue  # this connection is already closed — fine
+            real_unlink(self, missing_ok=missing_ok)
+
+        with patch("sqlite3.connect", side_effect=tracking_connect):
+            with patch.object(Path, "unlink", windows_style_unlink):
+                recovered_index = SqliteIndex(corrupt_db_path)  # must not raise
+        try:
+            self.assertEqual(recovered_index.search("anything"), [])
+        finally:
+            recovered_index.close()
 
     def test_opening_a_corrupt_db_file_recovers_instead_of_crashing(self) -> None:
         # Direct regression test for the __init__-level bug: a corrupt

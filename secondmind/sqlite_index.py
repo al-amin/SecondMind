@@ -94,6 +94,13 @@ class SqliteIndex:
         valid SQLite file. The index is documented as always rebuildable
         from the vault (SPEC.md §2) — a corrupt index file must never
         crash the whole process, only trigger a clean recreation.
+
+        Relies on ``_open`` never leaking an open handle on failure — that
+        guarantee is what makes ``unlink`` safe here even on Windows,
+        where deleting a file with any live handle raises
+        ``PermissionError`` (POSIX allows it, which is why an earlier
+        version of this method that didn't close on failure only broke on
+        a real windows-latest runner, never locally).
         """
         try:
             connection = self._open(db_path)
@@ -108,11 +115,22 @@ class SqliteIndex:
             return connection
 
     def _open(self, db_path: Path) -> sqlite3.Connection:
+        """Open ``db_path`` with WAL mode and a busy_timeout.
+
+        Closes its own connection before propagating a failure — a caller
+        that catches the exception never has to guess whether a partially
+        opened connection is still holding the file open (which is exactly
+        what breaks ``unlink`` on Windows).
+        """
         db_path.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(str(db_path), check_same_thread=False)
-        connection.execute("PRAGMA journal_mode=WAL")
-        connection.execute("PRAGMA busy_timeout=5000")
-        return connection
+        try:
+            connection.execute("PRAGMA journal_mode=WAL")
+            connection.execute("PRAGMA busy_timeout=5000")
+            return connection
+        except sqlite3.DatabaseError:
+            connection.close()
+            raise
 
     def close(self) -> None:
         self._connection.close()
