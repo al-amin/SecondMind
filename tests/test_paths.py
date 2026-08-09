@@ -8,6 +8,7 @@ locations, atomicity) and the Exception & Edge Case Matrix "Security" row
 from __future__ import annotations
 
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -153,6 +154,14 @@ class TestAtomicWriteText(unittest.TestCase):
             atomic_write_text(target, "content")
             self.assertEqual(target.read_text(encoding="utf-8"), "content")
 
+    @unittest.skipIf(
+        sys.platform == "win32",
+        "os.chmod cannot express a read-only directory on Windows (ACL-based, not POSIX bits)",
+    )
+    @unittest.skipIf(
+        hasattr(os, "geteuid") and os.geteuid() == 0,
+        "root ignores directory permission bits — cannot express read-only via chmod",
+    )
     def test_original_file_untouched_if_write_target_dir_is_readonly(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp) / "note.md"
