@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "secondmind": {
+      "type": "stdio",
+      "command": "python3",
+      "args": ["-m", "secondmind_mcp.server"],
+      "env": {
+        "PYTHONPATH": "."
+      }
+    }
+  }
+}
