@@ -20,12 +20,12 @@ The two ranked lists are fused with :func:`secondmind.search.reciprocal_rank_fus
 
 from __future__ import annotations
 
-import json
+import array
 import os
 import sqlite3
 from pathlib import Path
 
-from secondmind.hashing_embedder import HashingEmbedder, cosine_similarity
+from secondmind.hashing_embedder import HashingEmbedder
 from secondmind.models import KnowledgeItem, KnowledgeType
 from secondmind.search import reciprocal_rank_fusion
 
@@ -36,12 +36,25 @@ CREATE TABLE IF NOT EXISTS items (
     id TEXT PRIMARY KEY,
     type TEXT NOT NULL,
     title TEXT NOT NULL,
-    embedding TEXT NOT NULL
+    embedding BLOB NOT NULL
 );
 CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(
     id UNINDEXED, title, body
 );
 """
+
+
+def _pack_embedding(vector: list[float]) -> bytes:
+    """Pack a vector as compact 32-bit floats — far cheaper to deserialize
+    at query time than JSON, which matters once the corpus reaches
+    thousands of notes (see BENCHMARKS.md)."""
+    return array.array("f", vector).tobytes()
+
+
+def _unpack_embedding(blob: bytes) -> array.array:
+    vector = array.array("f")
+    vector.frombytes(blob)
+    return vector
 
 
 def _fts5_available(connection: sqlite3.Connection) -> bool:
@@ -76,7 +89,7 @@ class SqliteIndex:
 
     def put(self, item: KnowledgeItem) -> None:
         """Insert or update ``item`` in the index (idempotent on ``item.id``)."""
-        embedding = json.dumps(self._embedder.embed(f"{item.title}\n{item.body}"))
+        embedding = _pack_embedding(self._embedder.embed(f"{item.title}\n{item.body}"))
         self._connection.execute(
             "INSERT INTO items (id, type, title, embedding) VALUES (?, ?, ?, ?) "
             "ON CONFLICT(id) DO UPDATE SET type=excluded.type, title=excluded.title, "
@@ -115,10 +128,15 @@ class SqliteIndex:
             return []
 
     def _dense_search(self, query: str, limit: int) -> list[str]:
+        # Every stored and query vector is already L2-normalized by
+        # HashingEmbedder, so cosine similarity between them reduces to a
+        # plain dot product — no per-row magnitude computation needed on
+        # the hot path.
         query_vector = self._embedder.embed(query)
         rows = self._connection.execute("SELECT id, embedding FROM items").fetchall()
         scored = [
-            (row[0], cosine_similarity(query_vector, json.loads(row[1]))) for row in rows
+            (row[0], sum(q * v for q, v in zip(query_vector, _unpack_embedding(row[1]))))
+            for row in rows
         ]
         scored.sort(key=lambda pair: pair[1], reverse=True)
         return [
