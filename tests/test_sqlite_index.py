@@ -94,9 +94,31 @@ class TestSqliteIndexRebuild(unittest.TestCase):
         self.assertEqual(self.index.search("marmoset"), [])
         self.assertIn("fresh", self.index.search("giraffe"))
 
+    def test_opening_a_corrupt_db_file_recovers_instead_of_crashing(self) -> None:
+        # Direct regression test for the __init__-level bug: a corrupt
+        # file used to raise sqlite3.DatabaseError straight out of the
+        # constructor, violating the documented "always rebuildable, never
+        # crashes" contract (SPEC.md section 2, Exception & Edge Case
+        # Matrix "corrupt/truncated SQLite index" row).
+        corrupt_db_path = Path(self._tmp.name) / "corrupt-init.db"
+        corrupt_db_path.write_bytes(b"not a real sqlite file")
+        recovered_index = SqliteIndex(corrupt_db_path)  # must not raise
+        try:
+            self.assertEqual(recovered_index.search("anything"), [])
+        finally:
+            recovered_index.close()
+
     def test_rebuild_on_corrupt_or_missing_db_recovers_cleanly(self) -> None:
-        self.db_path.write_bytes(b"not a real sqlite file")
-        recovering_index = SqliteIndex(self.db_path)
+        # Uses its own isolated path, not self.db_path — setUp's self.index
+        # holds an open connection to self.db_path for the whole test, and
+        # on Windows a still-open handle from a DIFFERENT SqliteIndex
+        # instance blocks rebuild()'s os.replace() onto that same path (no
+        # amount of retrying helps; the handle is only released in
+        # tearDown). Reusing self.db_path here was a test-isolation bug,
+        # not a production code bug.
+        corrupt_db_path = Path(self._tmp.name) / "corrupt.db"
+        corrupt_db_path.write_bytes(b"not a real sqlite file")
+        recovering_index = SqliteIndex(corrupt_db_path)
         recovering_index.rebuild([_item("a", "A", "content")])
         self.assertIn("a", recovering_index.search("content"))
         recovering_index.close()

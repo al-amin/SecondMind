@@ -86,10 +86,26 @@ class SqliteIndex:
     def __init__(self, db_path: Path, embedder: HashingEmbedder | None = None) -> None:
         self._db_path = db_path
         self._embedder = embedder or HashingEmbedder()
-        self._connection = self._open(db_path)
+        self._connection = self._open_recovering_from_corruption(db_path)
         self._fts5_available = _fts5_available()
-        self._connection.executescript(_SCHEMA)
-        self._connection.commit()
+
+    def _open_recovering_from_corruption(self, db_path: Path) -> sqlite3.Connection:
+        """Open ``db_path``, deleting and recreating it if it's not a
+        valid SQLite file. The index is documented as always rebuildable
+        from the vault (SPEC.md §2) — a corrupt index file must never
+        crash the whole process, only trigger a clean recreation.
+        """
+        try:
+            connection = self._open(db_path)
+            connection.executescript(_SCHEMA)
+            connection.commit()
+            return connection
+        except sqlite3.DatabaseError:
+            db_path.unlink(missing_ok=True)
+            connection = self._open(db_path)
+            connection.executescript(_SCHEMA)
+            connection.commit()
+            return connection
 
     def _open(self, db_path: Path) -> sqlite3.Connection:
         db_path.parent.mkdir(parents=True, exist_ok=True)
