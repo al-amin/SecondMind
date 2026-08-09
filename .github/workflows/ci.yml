@@ -30,7 +30,22 @@ jobs:
         run: python -m pip install -e ".[mcp]"
 
       - name: Run full test suite
-        run: python -m unittest discover -s tests -v
+        shell: bash
+        run: |
+          set +e
+          python -m unittest discover -s tests -v > test-output.log 2>&1
+          exit_code=$?
+          if [ $exit_code -ne 0 ]; then
+            # Surface the actual failure text as an annotation, since job
+            # logs require repo admin rights to download via the API —
+            # this keeps failures diagnosable without that permission.
+            tail -n 60 test-output.log | while IFS= read -r line; do
+              escaped=$(echo "$line" | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')
+              echo "::error::${escaped}"
+            done
+          fi
+          cat test-output.log
+          exit $exit_code
 
       - name: Real launcher — POSIX (run.sh)
         if: runner.os != 'Windows'
