@@ -1,0 +1,24 @@
+# SecondMind's own data — never committed. The default vault/index live outside
+# the repo entirely (~/.secondmind/), but guard against accidental in-repo use too.
+.secondmind/
+*.db
+*.db-wal
+*.db-shm
+secondmind_vault/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
