@@ -35,16 +35,20 @@ jobs:
           set +e
           python -m unittest discover -s tests -v > test-output.log 2>&1
           exit_code=$?
-          if [ $exit_code -ne 0 ]; then
-            # Surface the actual failure text as an annotation, since job
-            # logs require repo admin rights to download via the API —
-            # this keeps failures diagnosable without that permission.
-            tail -n 60 test-output.log | while IFS= read -r line; do
-              escaped=$(echo "$line" | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')
-              echo "::error::${escaped}"
-            done
-          fi
           cat test-output.log
+          if [ $exit_code -ne 0 ]; then
+            # Surface only the actual failure/error text as annotations —
+            # job logs require repo admin rights to download via the API,
+            # but annotations don't, and GitHub caps how many surface per
+            # job, so a targeted grep (not a blind tail) is what actually
+            # gets the useful lines through.
+            grep -E "^(FAIL|ERROR):|^[A-Za-z]+Error:|Traceback|AssertionError" test-output.log \
+              | head -n 20 \
+              | while IFS= read -r line; do
+                  escaped=$(echo "$line" | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')
+                  echo "::error::${escaped}"
+                done
+          fi
           exit $exit_code
 
       - name: Real launcher — POSIX (run.sh)
