@@ -77,8 +77,33 @@ graph TD
     CORE -.->|zero edges| DASH
 ```
 
-*(Sequence diagram for a `secondmind_search` call end-to-end is added in the phase that builds
-`secondmind_mcp/server.py` — there's nothing to sequence yet until that adapter exists.)*
+## Sequence: a `secondmind_search` call end-to-end
+
+```mermaid
+sequenceDiagram
+    participant Client as MCP Client<br/>(Claude Desktop/Code)
+    participant Adapter as secondmind_mcp/server.py
+    participant Store as secondmind/store.py
+    participant Index as secondmind/sqlite_index.py
+    participant Vault as Vault (Markdown files)
+
+    Client->>Adapter: tools/call secondmind_search {query, cursor?}
+    Note over Adapter: No session lookup — vault/index path<br/>resolved fresh from env on this call
+    Adapter->>Index: search(query, limit)
+    Index->>Index: BM25 lexical rank (FTS5)
+    Index->>Index: cosine dense rank (hashing embedder)
+    Index->>Index: reciprocal_rank_fusion([lexical, dense])
+    Index-->>Adapter: ranked note ids
+    Adapter->>Store: get(id) for each ranked id
+    Store->>Vault: read note file
+    Vault-->>Store: frontmatter + body
+    Store-->>Adapter: KnowledgeItem
+    Adapter-->>Client: {results, next_cursor}
+    Note over Client,Adapter: next_cursor is an explicit value the client<br/>threads back — never hidden session state
+```
+
+Verified end-to-end (not just in-process) by `scripts/live_probe.py`, which spawns the real
+server as a real subprocess over real stdio and drives this exact call sequence.
 
 ## Stateless MCP boundary (2026-07-28 spec)
 
