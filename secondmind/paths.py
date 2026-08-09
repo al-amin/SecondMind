@@ -11,10 +11,37 @@ from __future__ import annotations
 
 import os
 import re
+import time
 from pathlib import Path
 
 _NOTE_ID_PATTERN = re.compile(r"^[a-z0-9-]+$")
 _MAX_NOTE_ID_LENGTH = 128
+
+_REPLACE_RETRY_ATTEMPTS = 5
+_REPLACE_RETRY_DELAY_SECONDS = 0.1
+
+
+def replace_with_windows_retry(src: Path, dst: Path) -> None:
+    """``os.replace(src, dst)``, retrying on Windows' transient
+    ``PermissionError``/``WinError 5``.
+
+    On Windows, a rename target must have zero open handles from *any*
+    process, and handle release after closing a file isn't always
+    instantaneous — antivirus real-time scanning briefly reopening a
+    just-written file is a well-documented cause. POSIX rename has no
+    handle-based locking and never hits this — confirmed by this exact
+    error surfacing only on a real windows-latest CI runner, never
+    locally. A short bounded retry is the standard mitigation other
+    cross-platform tools (pip, npm) use for this error class.
+    """
+    for attempt in range(_REPLACE_RETRY_ATTEMPTS):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if attempt == _REPLACE_RETRY_ATTEMPTS - 1:
+                raise
+            time.sleep(_REPLACE_RETRY_DELAY_SECONDS)
 
 
 class InvalidNoteIdError(ValueError):
@@ -97,7 +124,7 @@ def atomic_write_text(target: Path, content: str) -> None:
         handle.flush()
         os.fsync(handle.fileno())
     try:
-        os.replace(temp_path, target)
+        replace_with_windows_retry(temp_path, target)
     except OSError:
         temp_path.unlink(missing_ok=True)
         raise

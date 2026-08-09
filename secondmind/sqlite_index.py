@@ -27,6 +27,7 @@ from pathlib import Path
 
 from secondmind.hashing_embedder import HashingEmbedder
 from secondmind.models import KnowledgeItem, KnowledgeType
+from secondmind.paths import replace_with_windows_retry
 from secondmind.search import reciprocal_rank_fusion
 
 _MIN_DENSE_SIMILARITY = 0.25  # below this, hash collisions dominate over real similarity
@@ -194,7 +195,7 @@ class SqliteIndex:
             rebuilder.put(item)
         rebuilder.close()
 
-        os.replace(temp_path, self._db_path)
+        replace_with_windows_retry(temp_path, self._db_path)
         for suffix in ("-wal", "-shm"):
             stale = Path(f"{self._db_path}{suffix}")
             stale.unlink(missing_ok=True)

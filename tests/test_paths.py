@@ -13,12 +13,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from unittest.mock import patch
+
 from secondmind.paths import (
     InvalidNoteIdError,
     atomic_write_text,
     default_index_db,
     default_vault_root,
     note_path,
+    replace_with_windows_retry,
     validate_note_id,
 )
 
@@ -173,6 +176,50 @@ class TestAtomicWriteText(unittest.TestCase):
                 self.assertEqual(target.read_text(encoding="utf-8"), "original")
             finally:
                 os.chmod(tmp, 0o755)
+
+
+class TestReplaceWithWindowsRetry(unittest.TestCase):
+    def test_succeeds_immediately_when_no_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "src.txt"
+            dst = Path(tmp) / "dst.txt"
+            src.write_text("content", encoding="utf-8")
+            replace_with_windows_retry(src, dst)
+            self.assertEqual(dst.read_text(encoding="utf-8"), "content")
+
+    def test_retries_on_permission_error_then_succeeds(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "src.txt"
+            dst = Path(tmp) / "dst.txt"
+            src.write_text("content", encoding="utf-8")
+
+            call_count = {"n": 0}
+            real_replace = os.replace
+
+            def flaky_replace(a, b):
+                call_count["n"] += 1
+                if call_count["n"] < 3:
+                    raise PermissionError("simulated transient Windows lock")
+                return real_replace(a, b)
+
+            with patch("secondmind.paths.os.replace", side_effect=flaky_replace):
+                replace_with_windows_retry(src, dst)
+
+            self.assertEqual(call_count["n"], 3)
+            self.assertEqual(dst.read_text(encoding="utf-8"), "content")
+
+    def test_raises_after_exhausting_all_retries(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "src.txt"
+            dst = Path(tmp) / "dst.txt"
+            src.write_text("content", encoding="utf-8")
+
+            with patch(
+                "secondmind.paths.os.replace",
+                side_effect=PermissionError("persistent lock"),
+            ):
+                with self.assertRaises(PermissionError):
+                    replace_with_windows_retry(src, dst)
 
 
 if __name__ == "__main__":
