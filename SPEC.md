@@ -205,3 +205,61 @@ verified by a CI job that runs the core test suite with `mcp` not installed.
   reference system's proven pattern of a try/except fallback to the stdlib default.
 - **Agent Plugins packaging** — `plugin.json`/`mcp.json`/`skills/` (Agent Plugins 1.0.0) means
   new clients that adopt the spec need zero SecondMind-side integration code.
+
+---
+
+## 10. v2 addendum — `mcp` 2.0.0 port (ROADMAP.md item 1)
+
+v1 pinned `mcp>=1.2,<2.0` after discovering 2.0.0 is a breaking rewrite of the low-level
+`Server` API, incompatible with v1's decorator-based adapter. This section is the contract the
+v2 port executes against — researched from the official SDK migration guide
+(`py.sdk.modelcontextprotocol.io/migration/`) and confirmed against the actual installed 2.0.0
+package, not assumed.
+
+### 10.1 What changes in `secondmind_mcp/server.py`
+
+- **Handler registration**: decorators (`@server.list_tools()`, `@server.call_tool()`) are
+  gone. Handlers are passed as `on_list_tools=`/`on_call_tool=` keyword arguments to the
+  `Server(...)` constructor.
+- **Handler signature**: `async def handler(ctx: ServerRequestContext, params: <TypedParams>) -> <TypedResult>`
+  — no more `(name, arguments)` unpacking. `on_call_tool` receives `CallToolRequestParams`
+  (with `.name`, `.arguments`) and must return `CallToolResult` (with keyword `content`,
+  `is_error`) or `InputRequiredResult`.
+- **Field names**: all Python attribute access is snake_case (`input_schema`, `is_error`,
+  `next_cursor`) — the JSON wire format is unchanged (still camelCase via Pydantic aliases).
+  Constructor kwargs still accept the old camelCase spelling, but SecondMind's own code uses
+  snake_case throughout for consistency with the rest of the codebase.
+- **Exceptions**: `McpError` is renamed `MCPError` (importable from `mcp.shared.exceptions` or
+  top-level `mcp`), constructed as `MCPError(code, message, data=None)` — no more wrapping an
+  `ErrorData`. Raising `MCPError` from `on_call_tool` now surfaces as a top-level JSON-RPC error
+  (unchanged intent from v1's `-32602` contract in §6). A non-`MCPError` exception is **no
+  longer auto-wrapped** into an error-flagged tool result — `on_call_tool` must catch its own
+  exceptions and return `CallToolResult(is_error=True, content=[...])` for tool-execution
+  failures the calling LLM should see and react to (distinct from protocol-level rejections,
+  which use `MCPError`).
+- **What does NOT change**: `stdio_server()` import path and usage, `server.run(read_stream,
+  write_stream, initialization_options)`, `server.create_initialization_options()`. The v1
+  serving scaffolding in `main()`/`_run_stdio()` needs no changes — only the handler
+  registration and signatures inside `build_server()` and `dispatch_tool_call()`.
+
+### 10.2 Stateless guarantee re-confirmed (not just re-stated)
+
+Real finding from the migration guide, not assumed: on a connection negotiated at the
+2026-07-28 protocol version — which is what a v2 SDK client defaults to against a v2 SDK
+server, `mode='auto'`, on every transport including stdio — **there is no back-channel for
+server-initiated requests at all**. Calling `ctx.session.create_message()` (sampling),
+`ctx.elicit()`, or `ctx.session.list_roots()` raises `NoBackChannelError` unconditionally. This
+is a spec-level restriction (SEP-2577 deprecates Roots/Sampling/Logging entirely), not an SDK
+implementation gap. SecondMind's adapter already needs none of these (§6's stateless design
+predates this finding and remains correct), so the port requires no behavior change here — this
+is confirmed as a non-issue, not worked around.
+
+### 10.3 What this unblocks vs. blocks for the rest of the v2 roadmap
+
+- **Streamable HTTP transport** (ROADMAP.md item 2): unaffected by the sampling restriction —
+  SecondMind's tools never needed a back-channel. Purely additive once the port lands.
+- **Session reflection** (ROADMAP.md item 7): the original plan ("server asks the client's LLM
+  to summarize via sampling") is **not viable** under 2026-07-28 — confirmed by this research,
+  not assumed. Corrected design: a tool returns raw recent notes; the calling AI does the
+  summarization in its own turn and writes the result back via `secondmind_put`. No sampling,
+  no back-channel, no LLM dependency inside SecondMind itself.
