@@ -39,23 +39,30 @@ discovery, which stays backlog — no concrete trigger for it yet (see its secti
    aspirational target at 10k notes). Revisit only with real evidence of need — e.g., skip the
    dense cosine scan whenever lexical BM25 already fills `limit`.
 
+## v2 — client-driven session reflection
+
+7. **`secondmind_get_recent` (or similar) + client-driven summarization.** Original plan was
+   server-initiated sampling (server asks the client's LLM to summarize) — corrected after real
+   research into the 2026-07-28 spec: server-initiated requests have **no back-channel on any
+   transport**, including stdio; a v2-SDK connection negotiated at 2026-07-28 raises
+   `NoBackChannelError` unconditionally on `create_message()`/sampling calls, spec-level, not an
+   SDK inconvenience. Correct v2 design instead: a tool returns raw recent notes; the *calling
+   AI* (in its own turn, using whatever LLM it already has) decides what's worth distilling and
+   writes the summary back via `secondmind_put`. Keeps SecondMind a pure data layer with zero
+   LLM dependency of its own, and is spec-compliant by construction rather than fighting the
+   spec's own restriction.
+
 ## v2 — surface area
 
-7. **Dashboard write/edit endpoints.** v1's dashboard is read-only by explicit decision, not a
+8. **Dashboard write/edit endpoints.** v1's dashboard is read-only by explicit decision, not a
    YAGNI inference. A v2 could add `put`/`supersede` through the browser.
-8. **Vault migration/merge tooling.** v1 deliberately starts from an empty vault. A real script
+9. **Vault migration/merge tooling.** v1 deliberately starts from an empty vault. A real script
    to import an existing personal Obsidian vault (or merge with the AUPS CKL / second-brain
    skill's bundle format, which SecondMind's export schema is already interop-shaped for per
    SPEC.md §7) into a SecondMind vault.
 
 ## Revisit later, not now (real gate re-check, not a blanket no)
 
-- **Session reflection** (periodically distill notes into a higher-level summary). Blocked on
-  a real capability SecondMind doesn't have yet: summarizing text needs an LLM call, and
-  `HashingEmbedder` can only compare text, not summarize it. The natural unblock is item #2's
-  MCP 2.0 port — MCP's sampling capability lets a server ask the *client's own LLM* to do the
-  summarization, with no separate API key and no break to the zero-install-by-default
-  promise. Sequence after the 2.0 port, not before.
 - **Skill/plugin discovery** (auto-index other Claude Skills or MCP servers on the machine).
   In the AUPS system this fed other AUPS plugins — SecondMind has no such consumer today, so
   it still fails the "does this need to exist" gate as stated. Becomes a real v2 feature only
