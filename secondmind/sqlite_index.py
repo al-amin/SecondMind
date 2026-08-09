@@ -57,13 +57,26 @@ def _unpack_embedding(blob: bytes) -> array.array:
     return vector
 
 
-def _fts5_available(connection: sqlite3.Connection) -> bool:
+def _fts5_available() -> bool:
+    """Whether this Python's bundled SQLite was compiled with FTS5.
+
+    This is a property of the SQLite build, not of any particular file, so
+    the probe always runs against a private, in-memory connection — never
+    against the shared db file `connection` points at. Probing on the
+    shared file was a real concurrency bug: two SqliteIndex instances
+    opening the same file could race to CREATE/DROP a same-named table,
+    raising "table already exists" under real concurrent access (this is
+    exactly what surfaced under CI's Linux runner load, though not under
+    lighter local load).
+    """
+    probe_connection = sqlite3.connect(":memory:")
     try:
-        connection.execute("CREATE VIRTUAL TABLE _fts5_probe USING fts5(x)")
-        connection.execute("DROP TABLE _fts5_probe")
+        probe_connection.execute("CREATE VIRTUAL TABLE _fts5_probe USING fts5(x)")
         return True
     except sqlite3.OperationalError:
         return False
+    finally:
+        probe_connection.close()
 
 
 class SqliteIndex:
@@ -73,7 +86,7 @@ class SqliteIndex:
         self._db_path = db_path
         self._embedder = embedder or HashingEmbedder()
         self._connection = self._open(db_path)
-        self._fts5_available = _fts5_available(self._connection)
+        self._fts5_available = _fts5_available()
         self._connection.executescript(_SCHEMA)
         self._connection.commit()
 
@@ -176,7 +189,7 @@ class SqliteIndex:
         rebuilder._db_path = temp_path
         rebuilder._embedder = self._embedder
         rebuilder._connection = temp_connection
-        rebuilder._fts5_available = _fts5_available(temp_connection)
+        rebuilder._fts5_available = _fts5_available()
         for item in items:
             rebuilder.put(item)
         rebuilder.close()
@@ -187,4 +200,4 @@ class SqliteIndex:
             stale.unlink(missing_ok=True)
 
         self._connection = self._open(self._db_path)
-        self._fts5_available = _fts5_available(self._connection)
+        self._fts5_available = _fts5_available()

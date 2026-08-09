@@ -18,7 +18,18 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Run core test suite (stdlib unittest, zero installs)
+      # Installed before any test step runs: `unittest discover` imports
+      # every tests/*.py file up front, including test_mcp_adapter.py,
+      # which imports `mcp` at module level. Running discover before this
+      # install broke on real (non-macOS-dev-machine) runners where `mcp`
+      # isn't already present system-wide — the separate core-isolation
+      # job below is the dedicated, correct place that proves the core
+      # itself needs no installs; this job's job is the real-OS launcher
+      # and live-probe checks.
+      - name: Install mcp SDK extra
+        run: python -m pip install -e ".[mcp]"
+
+      - name: Run full test suite
         run: python -m unittest discover -s tests -v
 
       - name: Real launcher — POSIX (run.sh)
@@ -48,12 +59,6 @@ jobs:
           ./scripts/run.ps1 put --type core --title "CI launcher check" --body "run.ps1 on windows-latest"
           ./scripts/run.ps1 search "launcher"
         shell: pwsh
-
-      - name: Install mcp SDK extra for the adapter/probe tests
-        run: python -m pip install -e ".[mcp]"
-
-      - name: MCP adapter test suite (requires mcp installed)
-        run: python -m unittest tests.test_mcp_adapter -v
 
       - name: Live probe — real subprocess, real stdio JSON-RPC
         run: python scripts/live_probe.py
