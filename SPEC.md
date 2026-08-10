@@ -199,7 +199,7 @@ verified by a CI job that runs the core test suite with `mcp` not installed.
 
 - **Streamable HTTP transport** — additive only. Because no MCP tool relies on hidden session
   state (§6), adding a stateless Streamable HTTP transport later requires zero tool-contract
-  changes.
+  changes. Built in v2 — see §11.
 - **Additional embedders** — `secondmind.hashing_embedder` implements an `Embedder` Protocol;
   a future optional extra could add a real ML embedder behind the same interface, following the
   reference system's proven pattern of a try/except fallback to the stdlib default.
@@ -257,9 +257,36 @@ is confirmed as a non-issue, not worked around.
 ### 10.3 What this unblocks vs. blocks for the rest of the v2 roadmap
 
 - **Streamable HTTP transport** (ROADMAP.md item 2): unaffected by the sampling restriction —
-  SecondMind's tools never needed a back-channel. Purely additive once the port lands.
+  SecondMind's tools never needed a back-channel. Purely additive once the port lands. Built
+  and live-verified (§11).
 - **Session reflection** (ROADMAP.md item 7): the original plan ("server asks the client's LLM
   to summarize via sampling") is **not viable** under 2026-07-28 — confirmed by this research,
   not assumed. Corrected design: a tool returns raw recent notes; the calling AI does the
   summarization in its own turn and writes the result back via `secondmind_put`. No sampling,
   no back-channel, no LLM dependency inside SecondMind itself.
+
+---
+
+## 11. v2 addendum — Streamable HTTP transport (ROADMAP.md item 2)
+
+Additive over stdio, per §9/§10.3. Same 6 tools, same contracts, zero tool-contract changes —
+only the wire transport differs.
+
+- **Module**: `secondmind_mcp/http_transport.py`, built on `Server.streamable_http_app(...)`
+  from the `mcp` package's own transitive dependencies (`starlette`, `uvicorn`) — no new
+  dependency introduced beyond the existing `mcp` extra.
+- **Stateless mode**: `stateless_http=True` — no `Mcp-Session-Id`, every HTTP request is
+  independent. Live-verified: two separate `POST /mcp` requests (a `secondmind_put` followed by
+  an unrelated `secondmind_search`) succeed with no session negotiation between them.
+- **Bound to localhost**: `host="127.0.0.1"` passed to `streamable_http_app`, which also
+  activates the SDK's own DNS-rebinding protection — a request with a non-local `Host` header
+  is rejected with HTTP 421 before reaching any tool handler. Live-verified, not assumed: a
+  request with `Host: evil.example.com` is confirmed rejected.
+- **Vault configuration**: resolved once at `build_http_app()` call time via `os.environ`, not
+  per request — correct for a single long-running server process serving one configured vault
+  for its whole lifetime (the same env-var contract as stdio: `SECONDMIND_VAULT`/
+  `SECONDMIND_INDEX_DB`).
+- **Running it**: `python3 scripts/run_http_server.py [--port 8765] [--vault PATH]` — separate
+  from `mcp.json` (which declares the stdio entry Claude Desktop/Code spawn); this transport is
+  for a remote or browser-based MCP client, run manually or by a different deployment, not
+  something Claude Desktop/Code launch automatically.
