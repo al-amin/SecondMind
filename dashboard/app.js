@@ -47,4 +47,32 @@ searchBox.addEventListener("input", () => {
   debounceTimer = setTimeout(() => search(searchBox.value.trim()), 200);
 });
 
+const newNoteType = document.getElementById("new-note-type");
+const newNoteTitle = document.getElementById("new-note-title");
+const newNoteBody = document.getElementById("new-note-body");
+const newNoteSubmit = document.getElementById("new-note-submit");
+const newNoteStatus = document.getElementById("new-note-status");
+
+newNoteSubmit.addEventListener("click", async () => {
+  newNoteStatus.textContent = "Saving...";
+  const response = await fetch("/api/put", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      type: newNoteType.value,
+      title: newNoteTitle.value,
+      body: newNoteBody.value,
+    }),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    newNoteStatus.textContent = `Error: ${error.error}`;
+    return;
+  }
+  newNoteStatus.textContent = "Saved.";
+  newNoteTitle.value = "";
+  newNoteBody.value = "";
+  loadAll();
+});
+
 loadAll();

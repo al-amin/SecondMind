@@ -10,14 +10,34 @@
     li { padding: 0.5rem 0; border-bottom: 1px solid #eee; cursor: pointer; }
     li:hover { background: #f7f7f7; }
     #note-view { white-space: pre-wrap; border: 1px solid #ddd; padding: 1rem; margin-top: 1rem; display: none; }
+    #new-note { border: 1px solid #ddd; padding: 1rem; margin-top: 2rem; }
+    #new-note input, #new-note textarea, #new-note select { width: 100%; margin-bottom: 0.5rem; padding: 0.5rem; font-size: 1rem; box-sizing: border-box; }
+    #new-note textarea { min-height: 6rem; font-family: inherit; }
+    #new-note button { padding: 0.5rem 1rem; }
+    #new-note-status { margin-top: 0.5rem; font-size: 0.9rem; }
   </style>
 </head>
 <body>
   <h1>SecondMind</h1>
-  <p>One memory. Every AI. Any machine. Read-only browser.</p>
+  <p>One memory. Every AI. Any machine.</p>
   <input id="search-box" type="text" placeholder="Search your memory..." />
   <ul id="results"></ul>
   <pre id="note-view"></pre>
+
+  <div id="new-note">
+    <h2>New note</h2>
+    <select id="new-note-type">
+      <option value="core">core</option>
+      <option value="semantic">semantic</option>
+      <option value="episodic">episodic</option>
+      <option value="procedural">procedural</option>
+    </select>
+    <input id="new-note-title" type="text" placeholder="Title" />
+    <textarea id="new-note-body" placeholder="Body"></textarea>
+    <button id="new-note-submit">Save</button>
+    <div id="new-note-status"></div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>
