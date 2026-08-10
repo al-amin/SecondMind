@@ -35,6 +35,32 @@ confirm this.
 
 ## Part 1 — Register with Claude Desktop
 
+### Option A — Install as an unpacked extension (recommended, no config editing)
+
+A ready-made extension package lives at `claude-desktop-extension/` in this repo, following
+the exact `manifest_version 0.3` schema already proven working on this machine (the existing
+`al-amin-mcp`/AUPS extension uses the same shape — `manifest.json` + `run.sh` + `icon.png`).
+
+1. Claude Desktop → **Settings → Extensions → Install Unpacked Extension**
+2. Select the folder:
+   `/Users/al.amin1/dev/personal/gitHub_personal/SecondMind/claude-desktop-extension`
+3. It appears under "Installed on your computer" next to AUPS, with a **Configure** button.
+4. Fully quit and reopen Claude Desktop (see restart instructions below — closing the window
+   is not enough).
+
+This is the easier path — skip straight to "Verify it connected" below. Use Option B only if
+you want to hand-edit the config directly, or the extension install fails for some reason.
+
+**Note on vault location:** the packaged extension's `manifest.json` sets no
+`SECONDMIND_VAULT` override, so it uses the real default (`~/.secondmind/vault`) — not the
+`-test` path used throughout the rest of this guide. That's fine (and arguably better) for
+real everyday use once you trust it, but if you want to keep this first test fully isolated
+from anything real, either edit `claude-desktop-extension/manifest.json`'s `env` block to add
+`"SECONDMIND_VAULT": "/Users/al.amin1/.secondmind-test/vault"` before installing, or use
+Option B for this initial test run instead.
+
+### Option B — Manual `claude_desktop_config.json` edit
+
 **Config file** (confirmed on this machine):
 `~/Library/Application Support/Claude/claude_desktop_config.json`
 
