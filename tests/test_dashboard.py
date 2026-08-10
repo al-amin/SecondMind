@@ -93,6 +93,18 @@ class TestNoteEndpoint(DashboardTestCase):
         status, _ = self._handle("/api/note/does-not-exist")
         self.assertEqual(status, 404)
 
+    def test_get_note_with_path_traversal_id_returns_400_not_a_crash(self) -> None:
+        # Real bug: store.get() raises InvalidNoteIdError (a ValueError
+        # subclass, not NoteNotFoundError) for a malformed id, which the
+        # route() handler didn't catch — the request thread crashed with
+        # an unhandled exception and the client got a dropped connection
+        # with no HTTP response at all, confirmed against a real socket.
+        # This is exactly the "path traversal via note id" row of the
+        # project's own Exception & Edge Case Matrix.
+        status, payload = self._handle("/api/note/../../etc/passwd")
+        self.assertEqual(status, 400)
+        self.assertIn("error", payload)
+
 
 class TestUnknownRoute(DashboardTestCase):
     def test_unknown_api_path_returns_404(self) -> None:
@@ -135,6 +147,13 @@ class TestPutEndpoint(DashboardTestCase):
         self.assertEqual(status, 400)
         self.assertIn("error", payload)
 
+    def test_put_with_path_traversal_explicit_id_returns_400_not_a_crash(self) -> None:
+        status, payload = self._handle_post(
+            "/api/put", {"id": "../../etc/passwd", "type": "core", "title": "X", "body": "x"}
+        )
+        self.assertEqual(status, 400)
+        self.assertIn("error", payload)
+
 
 class TestSupersedeEndpoint(DashboardTestCase):
     def test_supersede_replaces_body_reusing_the_same_id(self) -> None:
@@ -147,6 +166,11 @@ class TestSupersedeEndpoint(DashboardTestCase):
     def test_supersede_missing_note_returns_404(self) -> None:
         status, payload = self._handle_post("/api/supersede/does-not-exist", {"body": "x"})
         self.assertEqual(status, 404)
+        self.assertIn("error", payload)
+
+    def test_supersede_with_path_traversal_id_returns_400_not_a_crash(self) -> None:
+        status, payload = self._handle_post("/api/supersede/../../etc/passwd", {"body": "x"})
+        self.assertEqual(status, 400)
         self.assertIn("error", payload)
 
 

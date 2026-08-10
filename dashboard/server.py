@@ -20,6 +20,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from secondmind.models import KnowledgeType
+from secondmind.paths import InvalidNoteIdError
 from secondmind.sqlite_index import SqliteIndex
 from secondmind.store import NoteNotFoundError, VaultStore
 
@@ -72,6 +73,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 item = self._store.get(note_id)
             except NoteNotFoundError:
                 return 404, "application/json", json.dumps({"error": "not found"})
+            except InvalidNoteIdError as exc:
+                return 400, "application/json", json.dumps({"error": str(exc)})
             frontmatter, body = item.to_frontmatter()
             return 200, "application/json", json.dumps({**frontmatter, "body": body})
 
@@ -102,15 +105,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
             except KeyError as exc:
                 return 400, "application/json", json.dumps({"error": f"missing field: {exc}"})
 
-            result = self._store.put(
-                id=payload.get("id"),
-                type=knowledge_type,
-                title=title,
-                body=body,
-                scope=payload.get("scope", ""),
-                tags=payload.get("tags", []),
-                ttl_days=payload.get("ttl_days"),
-            )
+            try:
+                result = self._store.put(
+                    id=payload.get("id"),
+                    type=knowledge_type,
+                    title=title,
+                    body=body,
+                    scope=payload.get("scope", ""),
+                    tags=payload.get("tags", []),
+                    ttl_days=payload.get("ttl_days"),
+                )
+            except InvalidNoteIdError as exc:
+                return 400, "application/json", json.dumps({"error": str(exc)})
             self._index.put(self._store.get(result.id))
             return 200, "application/json", json.dumps(
                 {"id": result.id, "created": result.created, "updated": result.updated}
@@ -126,6 +132,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 item = self._store.supersede(note_id, new_body=new_body)
             except NoteNotFoundError:
                 return 404, "application/json", json.dumps({"error": "not found"})
+            except InvalidNoteIdError as exc:
+                return 400, "application/json", json.dumps({"error": str(exc)})
             self._index.put(item)
             return 200, "application/json", json.dumps({"id": item.id, "updated": item.updated})
 
