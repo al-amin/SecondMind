@@ -65,6 +65,13 @@ def import_bundle(
                 source=entry.get("source", "manual"),
                 ttl_days=entry.get("ttl_days"),
                 supersedes=entry.get("supersedes"),
+                # Preserve the original history rather than re-stamping
+                # with the import time — a faithful restore, not a new
+                # write. Found necessary via a real CI failure where the
+                # round-trip test's two timestamps differed by exactly the
+                # time it took a slow Windows runner to run put() twice.
+                created=entry.get("created"),
+                updated=entry.get("updated"),
             )
         imported += 1
 

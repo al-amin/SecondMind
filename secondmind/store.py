@@ -76,8 +76,19 @@ class VaultStore:
         source: str = "manual",
         ttl_days: int | None = None,
         supersedes: str | None = None,
+        created: str | None = None,
+        updated: str | None = None,
     ) -> PutResult:
-        """Create or update a note, classifying the change before writing (SPEC.md §5)."""
+        """Create or update a note, classifying the change before writing (SPEC.md §5).
+
+        ``created``/``updated``, when explicitly provided, are used
+        verbatim instead of the current time — needed for a faithful
+        export/import restore (see :func:`secondmind.portability.import_bundle`),
+        which must preserve a note's original history rather than
+        re-stamping it with the import time. Ordinary callers (the CLI,
+        the MCP adapter) never pass these, so their behavior — timestamp
+        "now" — is unchanged.
+        """
         if id is not None:
             validate_note_id(id)
             resolved_id = id
@@ -85,11 +96,12 @@ class VaultStore:
             resolved_id = generate_note_id(title, self._existing_ids())
 
         existing_body: str | None = None
-        created = _now_iso()
+        resolved_created = created if created is not None else _now_iso()
         try:
             existing = self._read_item(resolved_id)
             existing_body = existing.body
-            created = existing.created
+            if created is None:
+                resolved_created = existing.created
         except NoteNotFoundError:
             pass
 
@@ -100,7 +112,8 @@ class VaultStore:
                 id=resolved_id, created=existing_item.created, updated=existing_item.updated, kind=kind
             )
 
-        updated = _now_iso()
+        created = resolved_created
+        updated = updated if updated is not None else _now_iso()
         item = KnowledgeItem(
             id=resolved_id,
             type=type,

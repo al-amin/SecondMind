@@ -41,6 +41,31 @@ class TestVaultStorePutAndGet(unittest.TestCase):
         result = self.store.put(id=None, type=KnowledgeType.CORE, title="Auto Id", body="x")
         self.assertRegex(result.id, r"^[a-z0-9-]+$")
 
+    def test_put_with_explicit_created_and_updated_preserves_them_verbatim(self) -> None:
+        # Needed for faithful export/import restore: re-importing a bundle
+        # must preserve the ORIGINAL timestamps, not stamp "now" — found
+        # via a real CI failure where two put() calls a second apart (a
+        # slow Windows runner crossing a second boundary) proved
+        # import_bundle was silently discarding the source timestamps.
+        result = self.store.put(
+            id="a",
+            type=KnowledgeType.CORE,
+            title="A",
+            body="x",
+            created="2020-01-01T00:00:00Z",
+            updated="2020-06-01T00:00:00Z",
+        )
+        self.assertEqual(result.created, "2020-01-01T00:00:00Z")
+        self.assertEqual(result.updated, "2020-06-01T00:00:00Z")
+        item = self.store.get("a")
+        self.assertEqual(item.created, "2020-01-01T00:00:00Z")
+        self.assertEqual(item.updated, "2020-06-01T00:00:00Z")
+
+    def test_put_without_explicit_timestamps_still_uses_now(self) -> None:
+        result = self.store.put(id="a", type=KnowledgeType.CORE, title="A", body="x")
+        self.assertTrue(result.created)
+        self.assertEqual(result.created, result.updated)
+
     def test_put_with_explicit_id_uses_it(self) -> None:
         result = self.store.put(
             id="explicit-id", type=KnowledgeType.CORE, title="Explicit", body="x"
