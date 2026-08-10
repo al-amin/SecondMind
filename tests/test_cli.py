@@ -166,6 +166,38 @@ class TestPrune(CliTestCase):
         self.assertEqual(json.loads(out)["pruned"], [])
 
 
+class TestMigrate(CliTestCase):
+    def test_migrate_imports_notes_from_an_external_vault(self) -> None:
+        with tempfile.TemporaryDirectory() as external_dir:
+            (Path(external_dir) / "note.md").write_text(
+                "---\ntype: core\ntitle: External\ncreated: 2026-01-01T00:00:00Z\n"
+                "updated: 2026-01-01T00:00:00Z\n---\nexternal content\n",
+                encoding="utf-8",
+            )
+            code, out, _ = self._run(["migrate", external_dir])
+            self.assertEqual(code, 0)
+            self.assertEqual(json.loads(out)["imported"], 1)
+
+    def test_migrate_dry_run_does_not_write(self) -> None:
+        with tempfile.TemporaryDirectory() as external_dir:
+            (Path(external_dir) / "note.md").write_text(
+                "---\ntype: core\ntitle: External\ncreated: 2026-01-01T00:00:00Z\n"
+                "updated: 2026-01-01T00:00:00Z\n---\nx\n",
+                encoding="utf-8",
+            )
+            code, out, _ = self._run(["migrate", external_dir, "--dry-run"])
+            self.assertEqual(code, 0)
+            self.assertEqual(json.loads(out)["imported"], 1)
+            list_code, list_out, _ = self._run(["list"])
+            self.assertEqual(json.loads(list_out), [])
+
+    def test_migrate_on_empty_external_vault_imports_nothing(self) -> None:
+        with tempfile.TemporaryDirectory() as external_dir:
+            code, out, _ = self._run(["migrate", external_dir])
+            self.assertEqual(code, 0)
+            self.assertEqual(json.loads(out)["imported"], 0)
+
+
 class TestUnknownCommand(CliTestCase):
     def test_unknown_command_exits_nonzero_with_stderr_message(self) -> None:
         code, out, err = self._run(["not-a-real-command"])

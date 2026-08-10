@@ -15,6 +15,7 @@ import json
 import sys
 from pathlib import Path
 
+from secondmind.migrate import scan_external_vault
 from secondmind.models import KnowledgeType
 from secondmind.paths import InvalidNoteIdError, default_index_db, default_vault_root
 from secondmind.portability import export_bundle, import_bundle
@@ -60,6 +61,10 @@ def _build_parser() -> argparse.ArgumentParser:
 
     prune = subparsers.add_parser("prune")
     prune.add_argument("--dry-run", action="store_true")
+
+    migrate = subparsers.add_parser("migrate")
+    migrate.add_argument("external_vault_path")
+    migrate.add_argument("--dry-run", action="store_true")
 
     return parser
 
@@ -164,6 +169,16 @@ def run(argv: list[str], env: dict[str, str] | None = None) -> int:
         if args.command == "prune":
             result = prune_expired(store, dry_run=args.dry_run)
             print(json.dumps(result))
+            return 0
+
+        if args.command == "migrate":
+            external_root = Path(args.external_vault_path)
+            if not external_root.is_dir():
+                print(f"not a directory: {external_root}", file=sys.stderr)
+                return 1
+            bundle = scan_external_vault(external_root)
+            result = import_bundle(store, bundle, dry_run=args.dry_run)
+            print(json.dumps({**result, "dry_run": args.dry_run}))
             return 0
 
     except InvalidNoteIdError as exc:

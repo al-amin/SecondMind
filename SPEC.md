@@ -112,6 +112,7 @@ Body: everything after the frontmatter's closing `---`, plain Markdown, may cont
 | `import` | `<path>`, `--dry-run` | Import a bundle. Idempotent — importing twice never duplicates. |
 | `rebuild` | — | Force a full index rebuild from the vault. |
 | `prune` (v2) | `--dry-run` | Delete notes past their `ttl_days` expiry. Prints `{pruned: [ids]}`. |
+| `migrate` (v2) | `<external_vault_path>`, `--dry-run` | Scan any directory of Markdown+frontmatter files and import them (see §12). Run `rebuild` afterward to make imported notes searchable, same as `import`. |
 
 Every command: on error, prints a one-line human-readable message to stderr and exits non-zero.
 Never a raw traceback for expected error conditions (missing id, bad args, vault unreadable).
@@ -292,3 +293,29 @@ only the wire transport differs.
   from `mcp.json` (which declares the stdio entry Claude Desktop/Code spawn); this transport is
   for a remote or browser-based MCP client, run manually or by a different deployment, not
   something Claude Desktop/Code launch automatically.
+
+---
+
+## 12. v2 addendum — vault migration (ROADMAP.md item 9)
+
+`secondmind.migrate.scan_external_vault(vault_root)` adapts any directory of `.md` files with
+YAML-subset frontmatter into the §7 bundle shape, then reuses the existing, already-tested
+`import_bundle()` — no new import machinery.
+
+- **Field defaults**: a note missing an optional field gets a sensible default — `type` falls
+  back to `semantic` (including on an unrecognized/foreign type string), `title` falls back to
+  the filename, `created`/`updated` fall back to the current time if absent.
+- **Id sanitization**: an external vault's filenames or frontmatter `id` values very often
+  don't match SecondMind's strict `[a-z0-9-]+` pattern (spaces, punctuation, uppercase,
+  underscores are all common in real personal Obsidian vaults). Every id is validated and, if
+  invalid, slugified via the same `generate_note_id()` collision-avoidance logic `put` already
+  uses when no id is supplied — verified by direct reproduction with a realistic filename
+  (`"My Weird Note Name!.md"`), which raised `InvalidNoteIdError` all the way through
+  `import_bundle()` before this sanitization was added.
+- **Malformed files are skipped, not fatal**: a file with no frontmatter block, or an
+  unparseable one, is skipped and simply absent from the scanned bundle — one bad file in a
+  large personal vault must never abort scanning the rest.
+- **Post-migration step**: like `import`, `migrate` writes to the vault but does not
+  automatically update the search index — run `rebuild` afterward (documented in the CLI
+  contract, §4) to make migrated notes searchable. Live-verified end-to-end: a real directory
+  with a realistic filename, migrated via the CLI, then made searchable via `rebuild`.
