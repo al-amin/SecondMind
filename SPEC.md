@@ -26,7 +26,7 @@ zero-translation interop — see §7):
 |---|---|---|---|
 | `id` | string | yes | `[a-z0-9-]+`, max 128 chars. Filename stem. Never contains `..`, `/`, `\`. |
 | `type` | string | yes | One of: `core`, `semantic`, `episodic`, `procedural` (see §1.2). |
-| `title` | string | yes | Free text, max 300 chars. |
+| `title` | string | yes | Free text, no enforced length limit. `id` generation truncates its derived slug internally so any title length produces a valid id (see `models.generate_note_id`). |
 | `scope` | string | no | Free text namespace hint (e.g. project name). Default `""`. |
 | `entities` | list[string] | no | Named entities mentioned in the note. Default `[]`. |
 | `tags` | list[string] | no | Free-text tags. Default `[]`. |
