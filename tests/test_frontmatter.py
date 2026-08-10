@@ -100,6 +100,39 @@ class TestParseRoundTrip(unittest.TestCase):
         parsed_fm, _ = parse(text)
         self.assertEqual(parsed_fm["title"], "Issue #123 needs a fix")
 
+    def test_value_with_trailing_space_round_trips_exactly(self) -> None:
+        # Real bug found via tests/test_complex_scenarios.py: a title
+        # ending in whitespace (produced naturally by string repetition
+        # in a test, but just as reachable from a real user pasting text
+        # with trailing whitespace) lost exactly one character on
+        # round-trip. _parse_value's raw.strip() call was stripping
+        # meaningful content, not just line-formatting whitespace — this
+        # module's own docstring claimed dump/parse were "exact inverses
+        # for any value this codec can produce," which was false for this
+        # case and untested until now.
+        fm = {"id": "x", "title": "trailing space here "}
+        text = dump(fm, "body")
+        parsed_fm, _ = parse(text)
+        self.assertEqual(parsed_fm["title"], "trailing space here ")
+
+    def test_value_with_leading_space_round_trips_exactly(self) -> None:
+        fm = {"id": "x", "title": " leading space here"}
+        text = dump(fm, "body")
+        parsed_fm, _ = parse(text)
+        self.assertEqual(parsed_fm["title"], " leading space here")
+
+    def test_value_with_both_leading_and_trailing_space_round_trips_exactly(self) -> None:
+        fm = {"id": "x", "title": "  padded on both sides  "}
+        text = dump(fm, "body")
+        parsed_fm, _ = parse(text)
+        self.assertEqual(parsed_fm["title"], "  padded on both sides  ")
+
+    def test_value_that_is_only_whitespace_round_trips_exactly(self) -> None:
+        fm = {"id": "x", "title": "   "}
+        text = dump(fm, "body")
+        parsed_fm, _ = parse(text)
+        self.assertEqual(parsed_fm["title"], "   ")
+
 
 class TestParseEdgeCases(unittest.TestCase):
     def test_missing_frontmatter_raises_frontmatter_error(self) -> None:

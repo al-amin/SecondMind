@@ -38,10 +38,24 @@ def _parse_scalar(raw: str) -> object:
 
 
 def _parse_value(raw: str) -> object:
-    """Parse a YAML-subset value: an inline list, or a scalar."""
-    raw = raw.strip()
-    if raw.startswith("[") and raw.endswith("]"):
-        inner = raw[1:-1].strip()
+    """Parse a YAML-subset value: an inline list, or a scalar.
+
+    ``raw`` is everything after the line's first ``:`` — ``dump()`` always
+    inserts exactly one separator space there (``f"{key}: {value}"``), so
+    exactly one leading space is removed here, never a blanket
+    ``.strip()``. A blanket strip silently destroyed any meaningful
+    leading/trailing whitespace *within* a value (e.g. a title a real user
+    pasted in with trailing whitespace) — found via a real round-trip
+    failure in tests/test_complex_scenarios.py, not assumed. List syntax
+    detection (``[...]``) still tolerates surrounding whitespace, since
+    bracket position is unambiguous either way.
+    """
+    if raw.startswith(" "):
+        raw = raw[1:]
+
+    bracket_check = raw.strip()
+    if bracket_check.startswith("[") and bracket_check.endswith("]"):
+        inner = bracket_check[1:-1].strip()
         if not inner:
             return []
         return [item.strip() for item in inner.split(",")]
