@@ -51,13 +51,16 @@ the exact `manifest_version 0.3` schema already proven working on this machine (
 This is the easier path — skip straight to "Verify it connected" below. Use Option B only if
 you want to hand-edit the config directly, or the extension install fails for some reason.
 
-**Note on vault location:** the packaged extension's `manifest.json` sets no
-`SECONDMIND_VAULT` override, so it uses the real default (`~/.secondmind/vault`) — not the
-`-test` path used throughout the rest of this guide. That's fine (and arguably better) for
-real everyday use once you trust it, but if you want to keep this first test fully isolated
-from anything real, either edit `claude-desktop-extension/manifest.json`'s `env` block to add
-`"SECONDMIND_VAULT": "/Users/al.amin1/.secondmind-test/vault"` before installing, or use
-Option B for this initial test run instead.
+**Vault location:** the packaged extension's `manifest.json` already sets
+`SECONDMIND_VAULT`/`SECONDMIND_INDEX_DB` to the same `-test` path Part 2's Claude Code command
+below uses — so Option A and Part 2 point at the same vault out of the box, which is what
+makes Part 3's cross-client test actually work without any manual edit. (Earlier drafts of
+this extension left `env` empty, defaulting to the real `~/.secondmind/vault` — verified this
+was a real inconsistency, not just a theoretical one: manual testing had already put a note in
+the real default vault before this fix, which would have silently mixed real and test data if
+left as-is.) Once you're done testing and want SecondMind for real everyday use, remove the
+`env` overrides from `claude-desktop-extension/manifest.json` (or just don't install this
+extension at all — point a fresh install at the real default instead).
 
 ### Option B — Manual `claude_desktop_config.json` edit
 

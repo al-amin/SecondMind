@@ -24,7 +24,10 @@
         "-m",
         "secondmind_mcp.server"
       ],
-      "env": {}
+      "env": {
+        "SECONDMIND_VAULT": "/Users/al.amin1/.secondmind-test/vault",
+        "SECONDMIND_INDEX_DB": "/Users/al.amin1/.secondmind-test/index.db"
+      }
     }
   },
   "tools_generated": true,
