@@ -204,6 +204,22 @@ assumed).
 
 ---
 
+## Part 5 — The web dashboard
+
+Browse/search/put/supersede notes from a browser instead of a client — useful if you want to
+glance at what's stored without opening Claude at all. Real, verified end-to-end (not assumed):
+
+```bash
+SECONDMIND_VAULT=/Users/al.amin1/.secondmind-test/vault \
+SECONDMIND_INDEX_DB=/Users/al.amin1/.secondmind-test/index.db \
+uv run --extra mcp python3 scripts/run_dashboard.py --port 8765
+```
+
+Then open `http://127.0.0.1:8765/` in a browser. It's bound to localhost only — not reachable
+from another machine. `Ctrl+C` to stop.
+
+---
+
 ## Cleanup
 
 Once you're satisfied it works, remove the test vaults (never the real ones, if you've since
