@@ -38,7 +38,7 @@ class McpAdapterTestCase(unittest.TestCase):
 
 
 class TestToolRegistry(unittest.TestCase):
-    def test_exposes_exactly_the_seven_v2_tools(self) -> None:
+    def test_exposes_exactly_the_eight_v2_tools(self) -> None:
         names = {tool.name for tool in TOOLS}
         self.assertEqual(
             names,
@@ -50,6 +50,7 @@ class TestToolRegistry(unittest.TestCase):
                 "secondmind_export",
                 "secondmind_import",
                 "secondmind_prune",
+                "secondmind_get_recent",
             },
         )
 
@@ -164,6 +165,27 @@ class TestSecondmindPrune(McpAdapterTestCase):
         result = self._call("secondmind_prune", {"dry_run": True})
         self.assertEqual(result["pruned"], [put_result["id"]])
         self._call("secondmind_get", {"id": put_result["id"]})  # must not raise
+
+
+class TestSecondmindGetRecent(McpAdapterTestCase):
+    def test_returns_recent_notes_most_recent_first(self) -> None:
+        self._call("secondmind_put", {"type": "core", "title": "First", "body": "x"})
+        self._call("secondmind_put", {"type": "core", "title": "Second", "body": "y"})
+        result = self._call("secondmind_get_recent", {})
+        self.assertIn("items", result)
+        titles = [item["title"] for item in result["items"]]
+        self.assertEqual(titles[0], "Second")
+
+    def test_respects_limit(self) -> None:
+        for i in range(5):
+            self._call("secondmind_put", {"type": "core", "title": f"N{i}", "body": "x"})
+        result = self._call("secondmind_get_recent", {"limit": 2})
+        self.assertEqual(len(result["items"]), 2)
+
+    def test_returns_full_body_not_just_title(self) -> None:
+        self._call("secondmind_put", {"type": "core", "title": "T", "body": "full body content"})
+        result = self._call("secondmind_get_recent", {})
+        self.assertEqual(result["items"][0]["body"], "full body content")
 
 
 class TestStatelessness(McpAdapterTestCase):

@@ -113,6 +113,7 @@ Body: everything after the frontmatter's closing `---`, plain Markdown, may cont
 | `rebuild` | — | Force a full index rebuild from the vault. |
 | `prune` (v2) | `--dry-run` | Delete notes past their `ttl_days` expiry. Prints `{pruned: [ids]}`. |
 | `migrate` (v2) | `<external_vault_path>`, `--dry-run` | Scan any directory of Markdown+frontmatter files and import them (see §12). Run `rebuild` afterward to make imported notes searchable, same as `import`. |
+| `recent` (v2) | `--limit`, `--type` | Print the most recently updated notes as JSON: `{items: [{id, title, updated}]}`. See §13. |
 
 Every command: on error, prints a one-line human-readable message to stderr and exits non-zero.
 Never a raw traceback for expected error conditions (missing id, bad args, vault unreadable).
@@ -155,6 +156,7 @@ not-found/bad-argument conditions — the current standard code, not the depreca
 | `secondmind_export` | `{}` | `{schema_version, count, bundle}` | Returns the full bundle inline (no session-scoped temp file). |
 | `secondmind_import` | `{bundle, dry_run?}` | `{imported, skipped, errors}` | Idempotent. Forward-tolerant of a newer `schema_version` than this server knows about. |
 | `secondmind_prune` (v2) | `{dry_run?}` | `{pruned: [ids]}` | Deletes notes past their `ttl_days` expiry (see §1.1). A note with no `ttl_days` is never eligible. |
+| `secondmind_get_recent` (v2) | `{limit?, type?}` | `{items: [{id, title, body, updated}]}` | Returns raw recent notes for the *calling AI* to review and optionally distill into a summary via `secondmind_put` — see §13. Never summarizes on its own. |
 
 The `mcp` (pip) Python SDK is the only allowed dependency, imported exclusively inside
 `secondmind_mcp/`. The `secondmind` core package never imports from `secondmind_mcp` —
@@ -319,3 +321,33 @@ YAML-subset frontmatter into the §7 bundle shape, then reuses the existing, alr
   automatically update the search index — run `rebuild` afterward (documented in the CLI
   contract, §4) to make migrated notes searchable. Live-verified end-to-end: a real directory
   with a realistic filename, migrated via the CLI, then made searchable via `rebuild`.
+
+---
+
+## 13. v2 addendum — client-driven session reflection (ROADMAP.md item 7)
+
+`secondmind.reflection.get_recent(store, limit, type)` returns the most recently updated notes,
+full content included — pure data retrieval, zero LLM dependency, zero sampling.
+
+- **Design correction from the original plan**: the roadmap originally proposed the server
+  asking the client's LLM to summarize recent notes via MCP sampling. §10.2 found this is not
+  viable under the 2026-07-28 spec — no back-channel for server-initiated requests exists on
+  any transport. The corrected design pushes the summarization decision entirely to the calling
+  AI: it calls `secondmind_get_recent`, reviews the raw notes in its own turn, and — if it
+  decides a summary is worth writing — calls `secondmind_put` itself. SecondMind never
+  summarizes, never calls an LLM, never needs a back-channel.
+- **Ordering and tie-breaking**: sorted by `updated` descending. `updated`'s ISO-8601-seconds
+  resolution means two notes written within the same second (a real, reproduced scenario — two
+  back-to-back `put` calls in a test produced identical `updated` timestamps) compare equal on
+  that field alone; file mtime (sub-second resolution) breaks the tie. Found via a genuine test
+  failure, not assumed — the original implementation without this tie-breaker failed a live
+  round-trip test through the actual MCP adapter.
+- **Default limit**: 20, to avoid returning an entire large vault by default.
+
+---
+
+## v2 tool count: 8 total
+
+`secondmind_put`, `secondmind_get`, `secondmind_search`, `secondmind_list`, `secondmind_export`,
+`secondmind_import`, `secondmind_prune`, `secondmind_get_recent` — all 8 verified together over
+a real stdio subprocess by `scripts/live_probe.py`.

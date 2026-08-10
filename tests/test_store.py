@@ -168,6 +168,25 @@ class TestVaultStoreDelete(unittest.TestCase):
         self.assertEqual([item.id for item in self.store.list()], ["b"])
 
 
+class TestVaultStorePathFor(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.store = VaultStore(Path(self._tmp.name))
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def test_path_for_returns_the_on_disk_note_path(self) -> None:
+        self.store.put(id="a", type=KnowledgeType.CORE, title="A", body="x")
+        path = self.store.path_for("a")
+        self.assertTrue(path.exists())
+        self.assertEqual(path.name, "a.md")
+
+    def test_path_for_rejects_unsafe_id(self) -> None:
+        with self.assertRaises(InvalidNoteIdError):
+            self.store.path_for("../escape")
+
+
 class TestVaultStoreCrashSafety(unittest.TestCase):
     def test_vault_directory_auto_created_on_first_put(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

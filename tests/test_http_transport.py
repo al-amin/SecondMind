@@ -84,7 +84,7 @@ class TestHttpTransportBinding(unittest.TestCase):
 
 
 class TestHttpTransportToolsList(TestHttpTransportTestCase):
-    def test_tools_list_returns_all_seven_tools_over_real_http(self) -> None:
+    def test_tools_list_returns_all_eight_tools_over_real_http(self) -> None:
         status, payload = _post_jsonrpc(
             self.port, {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
         )
@@ -100,6 +100,7 @@ class TestHttpTransportToolsList(TestHttpTransportTestCase):
                 "secondmind_export",
                 "secondmind_import",
                 "secondmind_prune",
+                "secondmind_get_recent",
             },
         )
 

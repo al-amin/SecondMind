@@ -122,6 +122,10 @@ class VaultStore:
         """Return the note with ``note_id``, raising :class:`NoteNotFoundError` if absent."""
         return self._read_item(note_id)
 
+    def path_for(self, note_id: str) -> Path:
+        """Return the on-disk path for ``note_id`` (may not exist yet)."""
+        return note_path(self._vault_root, note_id)
+
     def delete(self, note_id: str) -> None:
         """Delete the note with ``note_id``, raising :class:`NoteNotFoundError` if absent."""
         path = note_path(self._vault_root, note_id)

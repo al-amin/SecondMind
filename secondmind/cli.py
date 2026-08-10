@@ -20,6 +20,7 @@ from secondmind.models import KnowledgeType
 from secondmind.paths import InvalidNoteIdError, default_index_db, default_vault_root
 from secondmind.portability import export_bundle, import_bundle
 from secondmind.prune import prune as prune_expired
+from secondmind.reflection import get_recent
 from secondmind.semantic_embedder import load_embedder_from_env
 from secondmind.sqlite_index import SqliteIndex
 from secondmind.store import NoteNotFoundError, VaultStore
@@ -65,6 +66,10 @@ def _build_parser() -> argparse.ArgumentParser:
     migrate = subparsers.add_parser("migrate")
     migrate.add_argument("external_vault_path")
     migrate.add_argument("--dry-run", action="store_true")
+
+    recent = subparsers.add_parser("recent")
+    recent.add_argument("--limit", type=int, default=20)
+    recent.add_argument("--type")
 
     return parser
 
@@ -179,6 +184,21 @@ def run(argv: list[str], env: dict[str, str] | None = None) -> int:
             bundle = scan_external_vault(external_root)
             result = import_bundle(store, bundle, dry_run=args.dry_run)
             print(json.dumps({**result, "dry_run": args.dry_run}))
+            return 0
+
+        if args.command == "recent":
+            knowledge_type = KnowledgeType.from_str(args.type) if args.type else None
+            items = get_recent(store, limit=args.limit, type=knowledge_type)
+            print(
+                json.dumps(
+                    {
+                        "items": [
+                            {"id": item.id, "title": item.title, "updated": item.updated}
+                            for item in items
+                        ]
+                    }
+                )
+            )
             return 0
 
     except InvalidNoteIdError as exc:

@@ -38,6 +38,7 @@ from secondmind.models import KnowledgeType
 from secondmind.paths import InvalidNoteIdError, default_index_db, default_vault_root
 from secondmind.portability import export_bundle, import_bundle
 from secondmind.prune import prune as prune_expired
+from secondmind.reflection import get_recent
 from secondmind.semantic_embedder import load_embedder_from_env
 from secondmind.sqlite_index import SqliteIndex
 from secondmind.store import NoteNotFoundError, VaultStore
@@ -127,6 +128,22 @@ TOOLS: list[Tool] = [
             "properties": {"dry_run": {"type": "boolean"}},
         },
     ),
+    Tool(
+        name="secondmind_get_recent",
+        description=(
+            "Return the most recently updated notes, full content included. Use this to review "
+            "recent memory and decide what's worth distilling into a higher-level summary note "
+            "(write it back with secondmind_put) — this tool never summarizes on its own."
+        ),
+        input_schema={
+            "$schema": _SCHEMA,
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer"},
+                "type": {"type": "string", "enum": _KNOWLEDGE_TYPE_ENUM},
+            },
+        },
+    ),
 ]
 
 
@@ -208,6 +225,18 @@ def dispatch_tool_call(
 
         if name == "secondmind_prune":
             return prune_expired(store, dry_run=arguments.get("dry_run", False))
+
+        if name == "secondmind_get_recent":
+            knowledge_type = (
+                KnowledgeType.from_str(arguments["type"]) if arguments.get("type") else None
+            )
+            items = get_recent(store, limit=arguments.get("limit", 20), type=knowledge_type)
+            return {
+                "items": [
+                    {"id": item.id, "title": item.title, "body": item.body, "updated": item.updated}
+                    for item in items
+                ]
+            }
 
     except InvalidNoteIdError as exc:
         raise _invalid_params(str(exc)) from exc

@@ -4,8 +4,12 @@
 zero-install core, stateless MCP adapter, Agent Plugins packaging, CI-green on macOS/Linux/
 Windows. All v2+ work happens on the `v2` branch and only merges back when it's ready to ship.
 
-**Status (2026-08-09): all items below are in active development on `v2`, except Skill/plugin
-discovery, which stays backlog — no concrete trigger for it yet (see its section below).**
+**Status (2026-08-10): all 7 in-scope items complete on `v2`, CI-green (macOS/Linux/Windows +
+core-isolation) after every commit — mcp 2.0.0 port, Streamable HTTP transport, optional
+semantic embedder extra, TTL pruning, dashboard write endpoints, vault migration, and
+client-driven session reflection (design corrected mid-build after real spec research — see
+SPEC.md §10.2/§13). Skill/plugin discovery stays backlog — no concrete trigger for it yet (see
+its section below). `v2` has not yet been merged into `main`.**
 
 ## v2 — protocol & client expansion
 

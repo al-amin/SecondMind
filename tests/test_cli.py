@@ -198,6 +198,28 @@ class TestMigrate(CliTestCase):
             self.assertEqual(json.loads(out)["imported"], 0)
 
 
+class TestRecent(CliTestCase):
+    def test_recent_returns_notes_most_recent_first(self) -> None:
+        self._run(["put", "--type", "core", "--title", "First", "--body", "x"])
+        self._run(["put", "--type", "core", "--title", "Second", "--body", "y"])
+        code, out, _ = self._run(["recent"])
+        self.assertEqual(code, 0)
+        items = json.loads(out)["items"]
+        self.assertEqual(items[0]["title"], "Second")
+
+    def test_recent_respects_limit(self) -> None:
+        for i in range(5):
+            self._run(["put", "--type", "core", "--title", f"N{i}", "--body", "x"])
+        code, out, _ = self._run(["recent", "--limit", "2"])
+        self.assertEqual(code, 0)
+        self.assertEqual(len(json.loads(out)["items"]), 2)
+
+    def test_recent_on_empty_vault_returns_empty(self) -> None:
+        code, out, _ = self._run(["recent"])
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out)["items"], [])
+
+
 class TestUnknownCommand(CliTestCase):
     def test_unknown_command_exits_nonzero_with_stderr_message(self) -> None:
         code, out, err = self._run(["not-a-real-command"])
