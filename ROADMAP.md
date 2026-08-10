@@ -1,15 +1,17 @@
 # SecondMind — Roadmap
 
-`main` is pinned at [`v1.0.0`](https://github.com/al-amin/SecondMind/releases/tag/v1.0.0) —
-zero-install core, stateless MCP adapter, Agent Plugins packaging, CI-green on macOS/Linux/
-Windows. All v2+ work happens on the `v2` branch and only merges back when it's ready to ship.
+`v1.0.0` — zero-install core, stateless MCP adapter, Agent Plugins packaging, CI-green on
+macOS/Linux/Windows — is tagged at
+[`v1.0.0`](https://github.com/al-amin/SecondMind/releases/tag/v1.0.0) for anyone who wants to
+pin to it. All v2 work below has since merged into `main`, which is now the current shipping
+version.
 
-**Status (2026-08-10): all 7 in-scope items complete on `v2`, CI-green (macOS/Linux/Windows +
-core-isolation) after every commit — mcp 2.0.0 port, Streamable HTTP transport, optional
+**Status (2026-08-10): all 7 in-scope items complete and merged into `main`, CI-green
+(macOS/Linux/Windows + core-isolation) — mcp 2.0.0 port, Streamable HTTP transport, optional
 semantic embedder extra, TTL pruning, dashboard write endpoints, vault migration, and
 client-driven session reflection (design corrected mid-build after real spec research — see
 SPEC.md §10.2/§13). Skill/plugin discovery stays backlog — no concrete trigger for it yet (see
-its section below). `v2` has not yet been merged into `main`.**
+its section below).**
 
 ## v2 — protocol & client expansion
 

@@ -5,14 +5,14 @@ an actual MCP server with real Claude clients, then run the exact flow — save 
 retrieve from another, export the vault, import it into a fresh location, verify it's still
 there.
 
-Everything below was verified against this exact machine and the `v2` branch before being
-written down — no guessed paths, no assumed config formats.
+Everything below was verified against a real clone and a real Claude Desktop/Code install
+before being written down — no guessed paths, no assumed config formats.
 
 ## Prerequisites
 
 ```bash
-cd /Users/al.amin1/dev/personal/gitHub_personal/SecondMind
-git checkout v2   # or main, once v2 is merged
+git clone https://github.com/al-amin/SecondMind.git
+cd SecondMind
 uv run --extra mcp python3 scripts/live_probe.py
 ```
 
@@ -42,52 +42,59 @@ the exact `manifest_version 0.3` schema already proven working on this machine (
 `al-amin-mcp`/AUPS extension uses the same shape — `manifest.json` + `run.sh` + `icon.png`).
 
 1. Claude Desktop → **Settings → Extensions → Install Unpacked Extension**
-2. Select the folder:
-   `/Users/al.amin1/dev/personal/gitHub_personal/SecondMind/claude-desktop-extension`
-3. It appears under "Installed on your computer" next to AUPS, with a **Configure** button.
-4. Fully quit and reopen Claude Desktop (see restart instructions below — closing the window
+2. Select the folder: `claude-desktop-extension` (wherever you cloned this repo — the
+   extension resolves its own location and the repo root at `${__dirname}`, never a
+   hardcoded path, so this works from any clone location on any machine).
+3. It appears under "Installed on your computer", with a **Configure** button.
+4. Click **Configure** and set **Vault location** to
+   `~/.secondmind-test/vault` — this is the one manual step, and it's exactly why Option A
+   isn't fully zero-config: Claude Desktop's extension manifest can supply a sensible
+   default (`~/.secondmind/vault`), but it can't know you specifically want a *throwaway*
+   test vault instead of your real one for this exercise. **Search index location**
+   defaults to `~/.secondmind/index.db` alongside it; change it to
+   `~/.secondmind-test/index.db` to match.
+5. Fully quit and reopen Claude Desktop (see restart instructions below — closing the window
    is not enough).
 
 This is the easier path — skip straight to "Verify it connected" below. Use Option B only if
 you want to hand-edit the config directly, or the extension install fails for some reason.
 
-**Vault location:** the packaged extension's `manifest.json` already sets
-`SECONDMIND_VAULT`/`SECONDMIND_INDEX_DB` to the same `-test` path Part 2's Claude Code command
-below uses — so Option A and Part 2 point at the same vault out of the box, which is what
-makes Part 3's cross-client test actually work without any manual edit. (Earlier drafts of
-this extension left `env` empty, defaulting to the real `~/.secondmind/vault` — verified this
-was a real inconsistency, not just a theoretical one: manual testing had already put a note in
-the real default vault before this fix, which would have silently mixed real and test data if
-left as-is.) Once you're done testing and want SecondMind for real everyday use, remove the
-`env` overrides from `claude-desktop-extension/manifest.json` (or just don't install this
-extension at all — point a fresh install at the real default instead).
+**Vault location, for real everyday use (not just this test):** if you're installing this to
+actually use, skip step 4 entirely and keep the default — every user gets their own
+`~/.secondmind/vault` with zero configuration required. The extension's `manifest.json`
+declares `vault_dir`/`index_db` as `user_config` entries (Claude Desktop's own mechanism for
+per-user settings filled in via the Configure dialog, substituted into the launch command as
+`${user_config.vault_dir}`) — there is no path in the manifest tied to any one person's
+machine or home directory.
 
 ### Option B — Manual `claude_desktop_config.json` edit
 
-**Config file** (confirmed on this machine):
-`~/Library/Application Support/Claude/claude_desktop_config.json`
+Unlike the extension (Option A), a hand-edited config has no `${__dirname}`/`user_config`
+templating — you provide real, absolute paths for wherever you actually cloned the repo. The
+example below uses this repo's path on this machine; substitute your own clone location and
+home directory.
 
-Open it and add a `secondmind` entry under the existing `mcpServers` key (your `al-amin-mcp`
-router entry will already be there — leave it, just add `secondmind` alongside it):
+**Config file location:**
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+Open it and add a `secondmind` entry under the existing `mcpServers` key (leave any other
+entries you already have — just add `secondmind` alongside them):
 
 ```json
 {
   "mcpServers": {
-    "al-amin-mcp": {
-      "command": "uv",
-      "args": ["run", "--directory", "...", "mcp-allianz-router", "..."]
-    },
     "secondmind": {
       "command": "uv",
       "args": [
         "run",
-        "--directory", "/Users/al.amin1/dev/personal/gitHub_personal/SecondMind",
+        "--directory", "/absolute/path/to/your/clone/of/SecondMind",
         "--extra", "mcp",
         "python3", "-m", "secondmind_mcp.server"
       ],
       "env": {
-        "SECONDMIND_VAULT": "/Users/al.amin1/.secondmind-test/vault",
-        "SECONDMIND_INDEX_DB": "/Users/al.amin1/.secondmind-test/index.db"
+        "SECONDMIND_VAULT": "/absolute/path/to/your/home/.secondmind-test/vault",
+        "SECONDMIND_INDEX_DB": "/absolute/path/to/your/home/.secondmind-test/index.db"
       }
     }
   }
@@ -124,13 +131,14 @@ mcp` arguments weren't copied exactly — that's almost always the cause.
 
 ## Part 2 — Register with Claude Code
 
-Claude Code has its own registration command — don't hand-edit a JSON file for this one:
+Claude Code has its own registration command — don't hand-edit a JSON file for this one.
+Run it from inside your clone of the repo, so `$(pwd)` resolves to the right directory:
 
 ```bash
 claude mcp add secondmind \
-  -e SECONDMIND_VAULT=/Users/al.amin1/.secondmind-test/vault \
-  -e SECONDMIND_INDEX_DB=/Users/al.amin1/.secondmind-test/index.db \
-  -- uv run --directory /Users/al.amin1/dev/personal/gitHub_personal/SecondMind --extra mcp python3 -m secondmind_mcp.server
+  -e SECONDMIND_VAULT="$HOME/.secondmind-test/vault" \
+  -e SECONDMIND_INDEX_DB="$HOME/.secondmind-test/index.db" \
+  -- uv run --directory "$(pwd)" --extra mcp python3 -m secondmind_mcp.server
 ```
 
 Confirm it registered and is healthy:
@@ -226,7 +234,7 @@ Once you're satisfied it works, remove the test vaults (never the real ones, if 
 started using SecondMind for real):
 
 ```bash
-rm -rf /Users/al.amin1/.secondmind-test /Users/al.amin1/.secondmind-import-test /tmp/secondmind-export.json
+rm -rf ~/.secondmind-test ~/.secondmind-import-test /tmp/secondmind-export.json
 ```
 
 To remove the MCP registrations:

@@ -13,21 +13,28 @@
     "type": "binary",
     "entry_point": "run.sh",
     "mcp_config": {
-      "command": "/opt/homebrew/bin/uv",
-      "args": [
-        "run",
-        "--directory",
-        "/Users/al.amin1/dev/personal/gitHub_personal/SecondMind",
-        "--extra",
-        "mcp",
-        "python3",
-        "-m",
-        "secondmind_mcp.server"
-      ],
+      "command": "${__dirname}/run.sh",
+      "args": [],
       "env": {
-        "SECONDMIND_VAULT": "/Users/al.amin1/.secondmind-test/vault",
-        "SECONDMIND_INDEX_DB": "/Users/al.amin1/.secondmind-test/index.db"
+        "SECONDMIND_VAULT": "${user_config.vault_dir}",
+        "SECONDMIND_INDEX_DB": "${user_config.index_db}"
       }
+    }
+  },
+  "user_config": {
+    "vault_dir": {
+      "type": "directory",
+      "title": "Vault location",
+      "description": "Where SecondMind stores your notes as plain Markdown files. Defaults to a folder in your home directory — change it if you want your vault somewhere else (e.g. inside an existing Obsidian vault, or a synced folder).",
+      "required": true,
+      "default": "${HOME}/.secondmind/vault"
+    },
+    "index_db": {
+      "type": "file",
+      "title": "Search index location",
+      "description": "Where SecondMind keeps its rebuildable search index (SQLite). Safe to delete any time — it regenerates from the vault. Kept separate from vault_dir on purpose, so a vault pointed at an existing Obsidian folder never gets a stray database file mixed into your real notes.",
+      "required": true,
+      "default": "${HOME}/.secondmind/index.db"
     }
   },
   "tools_generated": true,
