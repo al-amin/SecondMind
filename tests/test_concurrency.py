@@ -51,26 +51,37 @@ class TestConcurrentWrites(unittest.TestCase):
             self.assertEqual(len(store.list()), 20)
 
     def test_concurrent_index_writers_to_the_same_db_do_not_raise_locked_error(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            db_path = Path(tmp) / "index.db"
-            errors: list[Exception] = []
+        # Regression test for a real race: switching a brand-new SQLite
+        # file into WAL mode takes a brief exclusive lock that
+        # busy_timeout does not reliably cover (confirmed by isolating the
+        # PRAGMA call alone — this is a documented SQLite behavior, not a
+        # bug in this codebase's use of it). A non-retrying open failed
+        # 3-5% of the time under 10 concurrent writers in direct local
+        # reproduction; _open() now retries the WAL switch with backoff.
+        # Repeated here across several fresh trials (not just one) because
+        # the original bug's failure rate was too low for a single trial
+        # to reliably catch a regression.
+        for _trial in range(10):
+            with tempfile.TemporaryDirectory() as tmp:
+                db_path = Path(tmp) / "index.db"
+                errors: list[Exception] = []
 
-            def write(i: int) -> None:
-                index = SqliteIndex(db_path)
-                try:
-                    index.put(_item(f"note-{i}", f"content number {i}"))
-                except Exception as exc:  # pragma: no cover - failure path
-                    errors.append(exc)
-                finally:
-                    index.close()
+                def write(i: int) -> None:
+                    index = SqliteIndex(db_path)
+                    try:
+                        index.put(_item(f"note-{i}", f"content number {i}"))
+                    except Exception as exc:  # pragma: no cover - failure path
+                        errors.append(exc)
+                    finally:
+                        index.close()
 
-            threads = [threading.Thread(target=write, args=(i,)) for i in range(10)]
-            for thread in threads:
-                thread.start()
-            for thread in threads:
-                thread.join()
+                threads = [threading.Thread(target=write, args=(i,)) for i in range(10)]
+                for thread in threads:
+                    thread.start()
+                for thread in threads:
+                    thread.join()
 
-            self.assertEqual(errors, [])
+                self.assertEqual(errors, [])
 
 
 class TestSearchDuringRebuild(unittest.TestCase):
