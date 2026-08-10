@@ -40,5 +40,5 @@ $env:SECONDMIND_INDEX_DB = Join-Path $Base "index.db"
 
 Write-Host "secondmind: profile '$Profile_' -> vault=$($env:SECONDMIND_VAULT)"
 
-& uv run --directory $RepoRoot --extra mcp python3 @Rest
+& uv run --directory $RepoRoot --extra mcp @Rest
 exit $LASTEXITCODE

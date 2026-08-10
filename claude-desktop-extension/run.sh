@@ -32,4 +32,4 @@ UV=$(find_uv) || {
     exit 127
 }
 
-exec "$UV" run --directory "$REPO_ROOT" --extra mcp python3 -m secondmind_mcp.server
+exec "$UV" run --directory "$REPO_ROOT" --extra mcp -m secondmind_mcp.server

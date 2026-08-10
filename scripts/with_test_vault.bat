@@ -50,7 +50,7 @@ shift
 goto collect
 
 :run
-uv run --directory "%REPO_ROOT%" --extra mcp python3 !REST!
+uv run --directory "%REPO_ROOT%" --extra mcp !REST!
 exit /b %ERRORLEVEL%
 
 :usage

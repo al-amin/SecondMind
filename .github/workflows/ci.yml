@@ -66,8 +66,20 @@ jobs:
         run: |
           set SECONDMIND_VAULT=%RUNNER_TEMP%\vault-bat
           set SECONDMIND_INDEX_DB=%RUNNER_TEMP%\index-bat.db
-          scripts\run.bat put --type core --title "CI launcher check" --body "run.bat on windows-latest"
-          scripts\run.bat search "launcher"
+          rem 'call' is required: invoking a .bat file without it transfers
+          rem control into that file permanently, so its own "exit /b"
+          rem would terminate this whole step instead of returning control
+          rem here to run the next line -- confirmed via a real
+          rem windows-latest run where the second command below silently
+          rem never executed for this exact reason.
+          call scripts\run.bat put --type core --title "CI launcher check" --body "run.bat on windows-latest"
+          call scripts\run.bat search "launcher" > search-output.txt
+          type search-output.txt
+          findstr /c:"CI launcher check" search-output.txt >nul
+          if %ERRORLEVEL% NEQ 0 (
+            echo ::error::run.bat search did not find the note run.bat put just wrote
+            exit /b 1
+          )
         shell: cmd
 
       - name: Real launcher — PowerShell (run.ps1)
@@ -100,16 +112,100 @@ jobs:
       - name: Test-vault wrapper — cmd.exe (with_test_vault.bat)
         if: runner.os == 'Windows'
         run: |
-          scripts\with_test_vault.bat ci-wrapper-check -m secondmind put --type core --title "wrapper check" --body "with_test_vault.bat on windows-latest"
-          scripts\with_test_vault.bat ci-wrapper-check -m secondmind search "wrapper"
+          rem 'call' required -- see the run.bat step above for why a bare
+          rem invocation would silently skip the search verification.
+          call scripts\with_test_vault.bat ci-wrapper-check -m secondmind put --type core --title "wrapper check" --body "with_test_vault.bat on windows-latest"
+          call scripts\with_test_vault.bat ci-wrapper-check -m secondmind search "wrapper" > search-output-wtv.txt
+          type search-output-wtv.txt
+          findstr /c:"wrapper check" search-output-wtv.txt >nul
+          if %ERRORLEVEL% NEQ 0 (
+            echo ::error::with_test_vault.bat search did not find the note put just wrote
+            exit /b 1
+          )
         shell: cmd
 
       - name: Test-vault wrapper — PowerShell (with_test_vault.ps1)
         if: runner.os == 'Windows'
         run: |
           ./scripts/with_test_vault.ps1 ci-wrapper-check -m secondmind put --type core --title "wrapper check" --body "with_test_vault.ps1 on windows-latest"
-          ./scripts/with_test_vault.ps1 ci-wrapper-check -m secondmind search "wrapper"
+          $result = ./scripts/with_test_vault.ps1 ci-wrapper-check -m secondmind search "wrapper"
+          Write-Output $result
+          if ($result -notmatch "wrapper check") {
+            Write-Error "with_test_vault.ps1 search did not find the note put just wrote"
+            exit 1
+          }
         shell: pwsh
+
+  claude-desktop-extension:
+    name: claude-desktop-extension launcher (${{ matrix.os }})
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Pre-warms the uv venv in its own step so first-run install noise
+      # doesn't obscure the actual handshake output below.
+      - name: Pre-warm uv venv
+        run: uv run --directory . --extra mcp -m secondmind --help
+
+      - name: Real MCP handshake over stdio — run.sh (POSIX)
+        if: runner.os != 'Windows'
+        run: |
+          chmod +x claude-desktop-extension/run.sh
+          export SECONDMIND_VAULT="$(mktemp -d)/vault"
+          export SECONDMIND_INDEX_DB="$(mktemp -d)/index.db"
+          echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2026-07-28","capabilities":{},"clientInfo":{"name":"ci","version":"1.0"}}}' \
+            | claude-desktop-extension/run.sh > response.json
+          cat response.json
+          grep -q '"result"' response.json
+        shell: bash
+
+      # Real bug found and fixed via a scratch-branch investigation on a
+      # real windows-latest runner: run.bat previously hardcoded "python3"
+      # inside every "uv run ... python3 -m secondmind_mcp.server" call,
+      # but uv's Windows venvs only ever create python.exe -- python3.exe
+      # is a macOS/Linux-only alias. This step is what catches a
+      # regression of that exact bug, since the earlier launcher checks
+      # above never exercised claude-desktop-extension/ at all.
+      - name: Real MCP handshake over stdio — run.bat (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          set SECONDMIND_VAULT=%RUNNER_TEMP%\vault-ext
+          set SECONDMIND_INDEX_DB=%RUNNER_TEMP%\index-ext.db
+          echo {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2026-07-28","capabilities":{},"clientInfo":{"name":"ci","version":"1.0"}}} > request.jsonl
+          call claude-desktop-extension\run.bat < request.jsonl > response.json
+          type response.json
+          findstr /c:"\"result\"" response.json >nul
+          if %ERRORLEVEL% NEQ 0 (
+            echo ::error::no JSON-RPC result in claude-desktop-extension\run.bat's response
+            exit /b 1
+          )
+        shell: cmd
+
+      - name: uv-not-found path fails cleanly, not with a crash (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          set PATH=C:\Windows\System32
+          set USERPROFILE=%RUNNER_TEMP%\fake-home-no-uv
+          call claude-desktop-extension\run.bat < nul > fallback.txt 2>&1
+          set RESULT=%ERRORLEVEL%
+          type fallback.txt
+          if %RESULT% NEQ 127 (
+            echo ::error::expected exit code 127 when uv is unreachable, got %RESULT%
+            exit /b 1
+          )
+          findstr /c:"no 'uv' executable found" fallback.txt >nul
+          if %ERRORLEVEL% NEQ 0 (
+            echo ::error::expected a clear "no uv executable found" message
+            exit /b 1
+          )
+        shell: cmd
 
   core-isolation:
     name: core runs with zero pip installs (mcp NOT present)

@@ -50,4 +50,4 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 
 echo "secondmind: profile '$PROFILE' -> vault=$SECONDMIND_VAULT" >&2
-exec uv run --directory "$REPO_ROOT" --extra mcp python3 "$@"
+exec uv run --directory "$REPO_ROOT" --extra mcp "$@"

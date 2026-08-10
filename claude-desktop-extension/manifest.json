@@ -18,6 +18,11 @@
       "env": {
         "SECONDMIND_VAULT": "${user_config.vault_dir}",
         "SECONDMIND_INDEX_DB": "${user_config.index_db}"
+      },
+      "platform_overrides": {
+        "win32": {
+          "command": "${__dirname}/run.bat"
+        }
       }
     }
   },
@@ -26,14 +31,14 @@
       "type": "directory",
       "title": "Vault location",
       "description": "Where SecondMind stores your notes as plain Markdown files. Defaults to a folder in your home directory — change it if you want your vault somewhere else (e.g. inside an existing Obsidian vault, or a synced folder).",
-      "required": true,
+      "required": false,
       "default": "${HOME}/.secondmind/vault"
     },
     "index_db": {
       "type": "file",
       "title": "Search index location",
       "description": "Where SecondMind keeps its rebuildable search index (SQLite). Safe to delete any time — it regenerates from the vault. Kept separate from vault_dir on purpose, so a vault pointed at an existing Obsidian folder never gets a stray database file mixed into your real notes.",
-      "required": true,
+      "required": false,
       "default": "${HOME}/.secondmind/index.db"
     }
   },
@@ -42,7 +47,7 @@
   "license": "Apache-2.0",
   "compatibility": {
     "claude_desktop": ">=0.10.0",
-    "platforms": ["darwin"],
+    "platforms": ["darwin", "win32"],
     "runtimes": {}
   }
 }

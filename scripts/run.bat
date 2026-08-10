@@ -11,26 +11,32 @@ rem
 rem Verified on windows-latest via .github/workflows/ci.yml — not just
 rem claimed to work.
 
-setlocal
+setlocal enabledelayedexpansion
 set REPO_ROOT=%~dp0..
 cd /d "%REPO_ROOT%"
+
+rem %ERRORLEVEL% inside a parenthesized if-block is expanded once at parse
+rem time (before py -3/python/python3 even runs), so exit /b %ERRORLEVEL%
+rem would always report the preceding "where" check's exit code (always 0
+rem on this branch), never the real interpreter's exit code. !ERRORLEVEL!
+rem (delayed expansion) reads the value at execution time instead.
 
 where py >nul 2>nul
 if %ERRORLEVEL% EQU 0 (
     py -3 -m secondmind %*
-    exit /b %ERRORLEVEL%
+    exit /b !ERRORLEVEL!
 )
 
 where python >nul 2>nul
 if %ERRORLEVEL% EQU 0 (
     python -m secondmind %*
-    exit /b %ERRORLEVEL%
+    exit /b !ERRORLEVEL!
 )
 
 where python3 >nul 2>nul
 if %ERRORLEVEL% EQU 0 (
     python3 -m secondmind %*
-    exit /b %ERRORLEVEL%
+    exit /b !ERRORLEVEL!
 )
 
 echo secondmind: no Python 3 interpreter found on PATH (tried: py, python, python3). 1>&2
