@@ -147,13 +147,18 @@ class TestScanExternalVault(unittest.TestCase):
         self.assertRegex(bundle["items"][0]["id"], r"^[a-z0-9-]+$")
 
     def test_sanitized_ids_do_not_collide_across_similarly_named_files(self) -> None:
+        # Punctuation here is deliberately POSIX+Windows-safe (no
+        # <>:"/\|?* — all reserved on Windows) since the point of this
+        # test is id collision after sanitization, not filesystem
+        # character limits (covered separately by the space/"!" case in
+        # test_filename_with_spaces_and_punctuation_produces_a_valid_id).
         self._write(
             "Note One!.md",
             "---\ntype: core\ntitle: One\ncreated: 2026-01-01T00:00:00Z\n"
             "updated: 2026-01-01T00:00:00Z\n---\nx\n",
         )
         self._write(
-            "Note One?.md",
+            "Note One!!.md",
             "---\ntype: core\ntitle: One\ncreated: 2026-01-01T00:00:00Z\n"
             "updated: 2026-01-01T00:00:00Z\n---\ny\n",
         )
