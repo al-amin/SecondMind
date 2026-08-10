@@ -139,6 +139,33 @@ class TestRebuild(CliTestCase):
         self.assertEqual(code, 0)
 
 
+class TestPrune(CliTestCase):
+    def test_prune_on_empty_vault_reports_zero_pruned(self) -> None:
+        code, out, _ = self._run(["prune"])
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out)["pruned"], [])
+
+    def test_prune_deletes_expired_note(self) -> None:
+        self._run(
+            ["put", "--id", "n1", "--type", "core", "--title", "N1", "--body", "x", "--ttl-days", "1"]
+        )
+        note_path = Path(self._tmp.name) / "n1.md"
+        content = note_path.read_text(encoding="utf-8")
+        import re
+
+        content = re.sub(r"updated: [^\n]+", "updated: 2020-01-01T00:00:00Z", content)
+        note_path.write_text(content, encoding="utf-8")
+
+        code, out, _ = self._run(["prune"])
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out)["pruned"], ["n1"])
+
+    def test_prune_dry_run_flag(self) -> None:
+        code, out, _ = self._run(["prune", "--dry-run"])
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out)["pruned"], [])
+
+
 class TestUnknownCommand(CliTestCase):
     def test_unknown_command_exits_nonzero_with_stderr_message(self) -> None:
         code, out, err = self._run(["not-a-real-command"])

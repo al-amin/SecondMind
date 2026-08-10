@@ -122,6 +122,13 @@ class VaultStore:
         """Return the note with ``note_id``, raising :class:`NoteNotFoundError` if absent."""
         return self._read_item(note_id)
 
+    def delete(self, note_id: str) -> None:
+        """Delete the note with ``note_id``, raising :class:`NoteNotFoundError` if absent."""
+        path = note_path(self._vault_root, note_id)
+        if not path.exists():
+            raise NoteNotFoundError(note_id)
+        path.unlink()
+
     def list(
         self, *, type: KnowledgeType | None = None, tag: str | None = None
     ) -> list[KnowledgeItem]:

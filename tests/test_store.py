@@ -143,6 +143,31 @@ class TestVaultStoreSupersede(unittest.TestCase):
             self.store.supersede("does-not-exist", new_body="x")
 
 
+class TestVaultStoreDelete(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.store = VaultStore(Path(self._tmp.name))
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def test_delete_removes_the_note(self) -> None:
+        self.store.put(id="a", type=KnowledgeType.CORE, title="A", body="x")
+        self.store.delete("a")
+        with self.assertRaises(NoteNotFoundError):
+            self.store.get("a")
+
+    def test_delete_missing_note_raises_not_found(self) -> None:
+        with self.assertRaises(NoteNotFoundError):
+            self.store.delete("does-not-exist")
+
+    def test_delete_does_not_affect_other_notes(self) -> None:
+        self.store.put(id="a", type=KnowledgeType.CORE, title="A", body="x")
+        self.store.put(id="b", type=KnowledgeType.CORE, title="B", body="y")
+        self.store.delete("a")
+        self.assertEqual([item.id for item in self.store.list()], ["b"])
+
+
 class TestVaultStoreCrashSafety(unittest.TestCase):
     def test_vault_directory_auto_created_on_first_put(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

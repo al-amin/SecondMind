@@ -41,7 +41,7 @@ async def probe() -> None:
         async with stdio_client(server_params) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
-                print("[1/6] initialize: ok")
+                print("[1/7] initialize: ok")
 
                 tools = await session.list_tools()
                 tool_names = {tool.name for tool in tools.tools}
@@ -52,8 +52,9 @@ async def probe() -> None:
                     "secondmind_list",
                     "secondmind_export",
                     "secondmind_import",
+                    "secondmind_prune",
                 }, f"unexpected tool set: {tool_names}"
-                print("[2/6] list_tools: ok — all 6 tools present")
+                print("[2/7] list_tools: ok — all 7 tools present")
 
                 put_result = await session.call_tool(
                     "secondmind_put",
@@ -62,12 +63,12 @@ async def probe() -> None:
                 put_payload = json.loads(put_result.content[0].text)
                 note_id = put_payload["id"]
                 assert note_id, "put did not return an id"
-                print(f"[3/6] secondmind_put: ok — created {note_id!r}")
+                print(f"[3/7] secondmind_put: ok — created {note_id!r}")
 
                 get_result = await session.call_tool("secondmind_get", {"id": note_id})
                 get_payload = json.loads(get_result.content[0].text)
                 assert get_payload["body"] == "Real subprocess, real stdio."
-                print("[4/6] secondmind_get: ok — round-tripped body content")
+                print("[4/7] secondmind_get: ok — round-tripped body content")
 
                 search_result = await session.call_tool(
                     "secondmind_search", {"query": "subprocess"}
@@ -75,14 +76,19 @@ async def probe() -> None:
                 search_payload = json.loads(search_result.content[0].text)
                 found_ids = {r["id"] for r in search_payload["results"]}
                 assert note_id in found_ids, f"search did not find {note_id!r}: {search_payload}"
-                print("[5/6] secondmind_search: ok — found the note by real query")
+                print("[5/7] secondmind_search: ok — found the note by real query")
 
                 export_result = await session.call_tool("secondmind_export", {})
                 export_payload = json.loads(export_result.content[0].text)
                 assert export_payload["bundle"]["count"] >= 1
-                print("[6/6] secondmind_export: ok — bundle contains the note")
+                print("[6/7] secondmind_export: ok — bundle contains the note")
 
-    print("\nLive probe PASSED — all 6 tools verified over a real stdio subprocess.")
+                prune_result = await session.call_tool("secondmind_prune", {"dry_run": True})
+                prune_payload = json.loads(prune_result.content[0].text)
+                assert prune_payload["pruned"] == [], "note has no ttl_days, must never be pruned"
+                print("[7/7] secondmind_prune: ok — note with no ttl_days correctly never pruned")
+
+    print("\nLive probe PASSED — all 7 tools verified over a real stdio subprocess.")
 
 
 def main() -> None:

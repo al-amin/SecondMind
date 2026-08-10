@@ -111,6 +111,7 @@ Body: everything after the frontmatter's closing `---`, plain Markdown, may cont
 | `export` | `--output <path>` | Write a schema-versioned bundle (§7) of the whole vault. |
 | `import` | `<path>`, `--dry-run` | Import a bundle. Idempotent — importing twice never duplicates. |
 | `rebuild` | — | Force a full index rebuild from the vault. |
+| `prune` (v2) | `--dry-run` | Delete notes past their `ttl_days` expiry. Prints `{pruned: [ids]}`. |
 
 Every command: on error, prints a one-line human-readable message to stderr and exits non-zero.
 Never a raw traceback for expected error conditions (missing id, bad args, vault unreadable).
@@ -152,6 +153,7 @@ not-found/bad-argument conditions — the current standard code, not the depreca
 | `secondmind_list` | `{type?, tag?}` | `{items: [{id, title, type}]}` | |
 | `secondmind_export` | `{}` | `{schema_version, count, bundle}` | Returns the full bundle inline (no session-scoped temp file). |
 | `secondmind_import` | `{bundle, dry_run?}` | `{imported, skipped, errors}` | Idempotent. Forward-tolerant of a newer `schema_version` than this server knows about. |
+| `secondmind_prune` (v2) | `{dry_run?}` | `{pruned: [ids]}` | Deletes notes past their `ttl_days` expiry (see §1.1). A note with no `ttl_days` is never eligible. |
 
 The `mcp` (pip) Python SDK is the only allowed dependency, imported exclusively inside
 `secondmind_mcp/`. The `secondmind` core package never imports from `secondmind_mcp` —

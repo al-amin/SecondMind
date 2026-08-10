@@ -37,6 +37,7 @@ from mcp.types import (
 from secondmind.models import KnowledgeType
 from secondmind.paths import InvalidNoteIdError, default_index_db, default_vault_root
 from secondmind.portability import export_bundle, import_bundle
+from secondmind.prune import prune as prune_expired
 from secondmind.semantic_embedder import load_embedder_from_env
 from secondmind.sqlite_index import SqliteIndex
 from secondmind.store import NoteNotFoundError, VaultStore
@@ -117,6 +118,15 @@ TOOLS: list[Tool] = [
             "required": ["bundle"],
         },
     ),
+    Tool(
+        name="secondmind_prune",
+        description="Delete notes past their ttl_days expiry. A note with no ttl_days is never pruned.",
+        input_schema={
+            "$schema": _SCHEMA,
+            "type": "object",
+            "properties": {"dry_run": {"type": "boolean"}},
+        },
+    ),
 ]
 
 
@@ -195,6 +205,9 @@ def dispatch_tool_call(
         if name == "secondmind_import":
             result = import_bundle(store, arguments["bundle"], dry_run=arguments.get("dry_run", False))
             return result
+
+        if name == "secondmind_prune":
+            return prune_expired(store, dry_run=arguments.get("dry_run", False))
 
     except InvalidNoteIdError as exc:
         raise _invalid_params(str(exc)) from exc

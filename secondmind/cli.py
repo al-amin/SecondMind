@@ -18,6 +18,7 @@ from pathlib import Path
 from secondmind.models import KnowledgeType
 from secondmind.paths import InvalidNoteIdError, default_index_db, default_vault_root
 from secondmind.portability import export_bundle, import_bundle
+from secondmind.prune import prune as prune_expired
 from secondmind.semantic_embedder import load_embedder_from_env
 from secondmind.sqlite_index import SqliteIndex
 from secondmind.store import NoteNotFoundError, VaultStore
@@ -56,6 +57,9 @@ def _build_parser() -> argparse.ArgumentParser:
     import_cmd.add_argument("--dry-run", action="store_true")
 
     subparsers.add_parser("rebuild")
+
+    prune = subparsers.add_parser("prune")
+    prune.add_argument("--dry-run", action="store_true")
 
     return parser
 
@@ -155,6 +159,11 @@ def run(argv: list[str], env: dict[str, str] | None = None) -> int:
             finally:
                 index.close()
             print(json.dumps({"status": "ok"}))
+            return 0
+
+        if args.command == "prune":
+            result = prune_expired(store, dry_run=args.dry_run)
+            print(json.dumps(result))
             return 0
 
     except InvalidNoteIdError as exc:

@@ -38,7 +38,7 @@ class McpAdapterTestCase(unittest.TestCase):
 
 
 class TestToolRegistry(unittest.TestCase):
-    def test_exposes_exactly_the_six_spec_tools(self) -> None:
+    def test_exposes_exactly_the_seven_v2_tools(self) -> None:
         names = {tool.name for tool in TOOLS}
         self.assertEqual(
             names,
@@ -49,6 +49,7 @@ class TestToolRegistry(unittest.TestCase):
                 "secondmind_list",
                 "secondmind_export",
                 "secondmind_import",
+                "secondmind_prune",
             },
         )
 
@@ -142,6 +143,27 @@ class TestSecondmindExportImport(McpAdapterTestCase):
         self.assertEqual(result["imported"], 1)
         list_result = self._call("secondmind_list", {})
         self.assertEqual(list_result["items"], [])
+
+
+class TestSecondmindPrune(McpAdapterTestCase):
+    def test_prune_on_empty_vault_reports_zero_pruned(self) -> None:
+        result = self._call("secondmind_prune", {})
+        self.assertEqual(result["pruned"], [])
+
+    def test_prune_dry_run_does_not_delete(self) -> None:
+        put_result = self._call(
+            "secondmind_put", {"type": "core", "title": "T", "body": "x", "ttl_days": 1}
+        )
+        note_path = Path(self.env["SECONDMIND_VAULT"]) / f"{put_result['id']}.md"
+        content = note_path.read_text(encoding="utf-8")
+        import re
+
+        content = re.sub(r"updated: [^\n]+", "updated: 2020-01-01T00:00:00Z", content)
+        note_path.write_text(content, encoding="utf-8")
+
+        result = self._call("secondmind_prune", {"dry_run": True})
+        self.assertEqual(result["pruned"], [put_result["id"]])
+        self._call("secondmind_get", {"id": put_result["id"]})  # must not raise
 
 
 class TestStatelessness(McpAdapterTestCase):
