@@ -82,6 +82,35 @@ jobs:
       - name: Live probe — real subprocess, real stdio JSON-RPC
         run: python scripts/live_probe.py
 
+      - uses: astral-sh/setup-uv@v7
+
+      - name: Test-vault wrapper — POSIX (with_test_vault.sh)
+        if: runner.os != 'Windows'
+        run: |
+          chmod +x scripts/with_test_vault.sh
+          ./scripts/with_test_vault.sh ci-wrapper-check -m secondmind put --type core --title "wrapper check" --body "with_test_vault.sh on ${{ matrix.os }}"
+          ./scripts/with_test_vault.sh ci-wrapper-check -m secondmind search "wrapper"
+          # Rejects a path-like profile before ever touching uv/the filesystem.
+          if ./scripts/with_test_vault.sh "../evil" -m secondmind search "x"; then
+            echo "expected with_test_vault.sh to reject a path-like profile" >&2
+            exit 1
+          fi
+        shell: bash
+
+      - name: Test-vault wrapper — cmd.exe (with_test_vault.bat)
+        if: runner.os == 'Windows'
+        run: |
+          scripts\with_test_vault.bat ci-wrapper-check -m secondmind put --type core --title "wrapper check" --body "with_test_vault.bat on windows-latest"
+          scripts\with_test_vault.bat ci-wrapper-check -m secondmind search "wrapper"
+        shell: cmd
+
+      - name: Test-vault wrapper — PowerShell (with_test_vault.ps1)
+        if: runner.os == 'Windows'
+        run: |
+          ./scripts/with_test_vault.ps1 ci-wrapper-check -m secondmind put --type core --title "wrapper check" --body "with_test_vault.ps1 on windows-latest"
+          ./scripts/with_test_vault.ps1 ci-wrapper-check -m secondmind search "wrapper"
+        shell: pwsh
+
   core-isolation:
     name: core runs with zero pip installs (mcp NOT present)
     runs-on: ubuntu-latest

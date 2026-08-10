@@ -177,30 +177,32 @@ The CLI takes the vault/index location from `SECONDMIND_VAULT`/`SECONDMIND_INDEX
 only — there is no `--vault` flag (confirmed by reading `secondmind/cli.py` directly, not
 assumed).
 
+Every command below goes through `scripts/with_test_vault.sh <profile> ...` (or the `.bat`/
+`.ps1` equivalent on Windows) — a small wrapper that resolves `<profile>` to
+`~/.secondmind-<profile>/{vault,index.db}`, sets both env vars, and execs the rest of the
+command through `uv run --extra mcp python3`. It exists so the vault path is defined in exactly
+one place instead of copy-pasted at every call site — see `scripts/with_test_vault.sh` for the
+full contract (invalid profile names and a missing `uv` are both rejected with a clear message,
+not a confusing downstream failure).
+
 1. **Export** (from either client, or the CLI directly):
    ```bash
-   SECONDMIND_VAULT=/Users/al.amin1/.secondmind-test/vault \
-   uv run --extra mcp python3 -m secondmind export --output /tmp/secondmind-export.json
+   scripts/with_test_vault.sh test -m secondmind export --output /tmp/secondmind-export.json
    cat /tmp/secondmind-export.json
    ```
    Or ask either Claude client: "Export my SecondMind vault to /tmp/secondmind-export.json."
 
 2. **Import into a fresh, separate vault** (proving it's not the same files):
    ```bash
-   SECONDMIND_VAULT=/Users/al.amin1/.secondmind-import-test/vault \
-   SECONDMIND_INDEX_DB=/Users/al.amin1/.secondmind-import-test/index.db \
-   uv run --extra mcp python3 -m secondmind import /tmp/secondmind-export.json
-
-   SECONDMIND_VAULT=/Users/al.amin1/.secondmind-import-test/vault \
-   SECONDMIND_INDEX_DB=/Users/al.amin1/.secondmind-import-test/index.db \
-   uv run --extra mcp python3 -m secondmind rebuild
-
-   SECONDMIND_VAULT=/Users/al.amin1/.secondmind-import-test/vault \
-   SECONDMIND_INDEX_DB=/Users/al.amin1/.secondmind-import-test/index.db \
-   uv run --extra mcp python3 -m secondmind search "orange sunset"
+   scripts/with_test_vault.sh import-test -m secondmind import /tmp/secondmind-export.json
+   scripts/with_test_vault.sh import-test -m secondmind rebuild
+   scripts/with_test_vault.sh import-test -m secondmind search "orange sunset"
    ```
    The search result should show your note, now living in a completely separate vault
-   directory that never existed before this command.
+   directory (`~/.secondmind-import-test/vault`) that never existed before this command.
+
+   **Windows (cmd.exe):** `scripts\with_test_vault.bat import-test -m secondmind search "orange sunset"`
+   **Windows (PowerShell):** `scripts/with_test_vault.ps1 import-test -m secondmind search "orange sunset"`
 
 ---
 
@@ -210,9 +212,7 @@ Browse/search/put/supersede notes from a browser instead of a client — useful 
 glance at what's stored without opening Claude at all. Real, verified end-to-end (not assumed):
 
 ```bash
-SECONDMIND_VAULT=/Users/al.amin1/.secondmind-test/vault \
-SECONDMIND_INDEX_DB=/Users/al.amin1/.secondmind-test/index.db \
-uv run --extra mcp python3 scripts/run_dashboard.py --port 8765
+scripts/with_test_vault.sh test scripts/run_dashboard.py --port 8765
 ```
 
 Then open `http://127.0.0.1:8765/` in a browser. It's bound to localhost only — not reachable
