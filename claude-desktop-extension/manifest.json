@@ -1,0 +1,38 @@
+{
+  "manifest_version": "0.3",
+  "name": "secondmind",
+  "display_name": "SecondMind",
+  "version": "0.1.0",
+  "description": "Portable, cross-session AI memory. Zero required dependencies. One memory. Every AI. Any machine.",
+  "long_description": "SecondMind is a local, zero-install memory layer: tell it something once and any MCP-compatible client (Claude Desktop, Claude Code, and others as they adopt the same standard) can recall it later, on any machine. Hybrid BM25+semantic search, conflict-safe writes, and a plain Markdown vault you fully own.",
+  "author": {
+    "name": "Al Amin"
+  },
+  "icon": "icon.png",
+  "server": {
+    "type": "binary",
+    "entry_point": "run.sh",
+    "mcp_config": {
+      "command": "/opt/homebrew/bin/uv",
+      "args": [
+        "run",
+        "--directory",
+        "/Users/al.amin1/dev/personal/gitHub_personal/SecondMind",
+        "--extra",
+        "mcp",
+        "python3",
+        "-m",
+        "secondmind_mcp.server"
+      ],
+      "env": {}
+    }
+  },
+  "tools_generated": true,
+  "keywords": ["memory", "personal", "knowledge-base", "mcp"],
+  "license": "Apache-2.0",
+  "compatibility": {
+    "claude_desktop": ">=0.10.0",
+    "platforms": ["darwin"],
+    "runtimes": {}
+  }
+}
