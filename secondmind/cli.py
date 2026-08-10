@@ -18,6 +18,7 @@ from pathlib import Path
 from secondmind.models import KnowledgeType
 from secondmind.paths import InvalidNoteIdError, default_index_db, default_vault_root
 from secondmind.portability import export_bundle, import_bundle
+from secondmind.semantic_embedder import load_embedder_from_env
 from secondmind.sqlite_index import SqliteIndex
 from secondmind.store import NoteNotFoundError, VaultStore
 
@@ -77,6 +78,7 @@ def run(argv: list[str], env: dict[str, str] | None = None) -> int:
     vault_root = default_vault_root(env=env)
     index_db = default_index_db(env=env)
     store = VaultStore(vault_root)
+    embedder = load_embedder_from_env(env=env)
 
     try:
         if args.command == "put":
@@ -95,7 +97,7 @@ def run(argv: list[str], env: dict[str, str] | None = None) -> int:
                 tags=tags,
                 ttl_days=args.ttl_days,
             )
-            index = SqliteIndex(index_db)
+            index = SqliteIndex(index_db, embedder=embedder)
             try:
                 index.put(store.get(result.id))
             finally:
@@ -119,7 +121,7 @@ def run(argv: list[str], env: dict[str, str] | None = None) -> int:
             return 0
 
         if args.command == "search":
-            index = SqliteIndex(index_db)
+            index = SqliteIndex(index_db, embedder=embedder)
             try:
                 ids = index.search(args.query, limit=args.limit)
             finally:
@@ -147,7 +149,7 @@ def run(argv: list[str], env: dict[str, str] | None = None) -> int:
             return 0
 
         if args.command == "rebuild":
-            index = SqliteIndex(index_db)
+            index = SqliteIndex(index_db, embedder=embedder)
             try:
                 index.rebuild(store.list())
             finally:

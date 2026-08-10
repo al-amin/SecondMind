@@ -37,6 +37,7 @@ from mcp.types import (
 from secondmind.models import KnowledgeType
 from secondmind.paths import InvalidNoteIdError, default_index_db, default_vault_root
 from secondmind.portability import export_bundle, import_bundle
+from secondmind.semantic_embedder import load_embedder_from_env
 from secondmind.sqlite_index import SqliteIndex
 from secondmind.store import NoteNotFoundError, VaultStore
 
@@ -134,6 +135,7 @@ def dispatch_tool_call(
     vault_root = default_vault_root(env=env)
     index_db = default_index_db(env=env)
     store = VaultStore(vault_root)
+    embedder = load_embedder_from_env(env=env)
 
     try:
         if name == "secondmind_put":
@@ -150,7 +152,7 @@ def dispatch_tool_call(
                 tags=arguments.get("tags", []),
                 ttl_days=arguments.get("ttl_days"),
             )
-            index = SqliteIndex(index_db)
+            index = SqliteIndex(index_db, embedder=embedder)
             try:
                 index.put(store.get(result.id))
             finally:
@@ -166,7 +168,7 @@ def dispatch_tool_call(
             return {**frontmatter, "body": body}
 
         if name == "secondmind_search":
-            index = SqliteIndex(index_db)
+            index = SqliteIndex(index_db, embedder=embedder)
             try:
                 ids = index.search(arguments["query"], limit=arguments.get("limit", 20))
             finally:
