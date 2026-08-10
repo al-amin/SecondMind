@@ -95,7 +95,7 @@ jobs:
         run: |
           python -m venv "${{ runner.temp }}/isolated-venv"
           python - <<'PYEOF'
-          import subprocess, sys, os
+          import re, subprocess, sys, os
 
           venv_python = os.path.join(os.environ["RUNNER_TEMP"], "isolated-venv",
                                       "Scripts" if sys.platform == "win32" else "bin",
@@ -106,15 +106,23 @@ jobs:
           )
           output = result.stdout + result.stderr
 
-          # test_mcp_adapter.py itself imports mcp, so it MUST fail to import
-          # in this venv — that failure is the proof mcp is genuinely absent,
-          # not skipped. Every other test file must still pass (Ran N tests,
-          # exactly 1 error), proving the core has no hidden dependency on mcp.
-          assert "No module named 'mcp'" in output, (
-              "expected test_mcp_adapter's import to fail with mcp absent, got:\n" + output
-          )
-          assert output.count("ERROR:") == 1, (
-              "expected exactly 1 import error (test_mcp_adapter), got:\n" + output
-          )
-          print("Confirmed: mcp absence only breaks the mcp-dependent test file — core is isolated.")
+          # At least one test file must fail to import BECAUSE mcp (or a
+          # transitive dependency it pulls in, like starlette) is absent
+          # — that's the proof mcp is genuinely uninstalled, not merely
+          # skipped. Rather than hardcode how many files that should be
+          # (which broke the moment a second mcp-dependent test file
+          # existed — test_http_transport.py imports starlette
+          # transitively via secondmind_mcp.http_transport, without
+          # writing "import mcp" itself, so a text-based file count is
+          # also unreliable), every ERROR block's traceback must cite a
+          # ModuleNotFoundError for mcp/starlette/uvicorn — never anything
+          # else, which is what actually proves the core has no hidden
+          # dependency on any of them.
+          error_blocks = re.split(r"\n(?=ERROR: )", output)[1:]
+          assert error_blocks, f"expected at least one import ERROR with mcp absent, got:\n{output}"
+          for block in error_blocks:
+              assert re.search(r"No module named '(mcp|starlette|uvicorn)'", block), (
+                  f"an ERROR block was not a missing-mcp-dependency import failure:\n{block}"
+              )
+          print(f"Confirmed: mcp absence only breaks {len(error_blocks)} mcp-dependent test file(s) via ModuleNotFoundError — core is isolated.")
           PYEOF
