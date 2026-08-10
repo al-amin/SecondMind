@@ -129,6 +129,40 @@ class TestGenerateNoteId(unittest.TestCase):
         self.assertRegex(note_id, r"^[a-z0-9-]+$")
         self.assertTrue(len(note_id) > 0)
 
+    def test_long_title_produces_an_id_within_the_128_char_limit(self) -> None:
+        # Real bug found via tests/test_complex_scenarios.py: an ordinary
+        # 180-char descriptive title (well under SPEC.md's documented
+        # 300-char title limit) produced an id over secondmind.paths's
+        # 128-char cap, failing validate_note_id downstream with a
+        # confusing "note id exceeds 128 characters" error that never
+        # mentions the title at all. The docstring already claimed this
+        # was "guaranteed" — it wasn't, until this test enforced it.
+        realistic_long_title = (
+            "Meeting notes from the Q3 planning session where we discussed "
+            "the new pricing model, timeline for the v2 release, and decided "
+            "to defer the semantic embedder work until next quarter"
+        )
+        self.assertEqual(len(realistic_long_title), 180)  # sanity-check the fixture itself
+        note_id = generate_note_id(realistic_long_title, existing_ids=set())
+        self.assertLessEqual(len(note_id), 128)
+        self.assertRegex(note_id, r"^[a-z0-9-]+$")
+
+    def test_very_long_title_5000_chars_still_produces_a_valid_id(self) -> None:
+        note_id = generate_note_id("A" * 5000, existing_ids=set())
+        self.assertLessEqual(len(note_id), 128)
+        self.assertRegex(note_id, r"^[a-z0-9-]+$")
+
+    def test_truncated_long_titles_still_avoid_collision(self) -> None:
+        # Two different long titles that happen to share the same first
+        # ~120 characters must still get distinct ids (the hash suffix,
+        # not just the truncated slug prefix, is what guarantees this).
+        prefix = "Identical opening text that goes on for quite a while before diverging into different content " * 1
+        first = generate_note_id(prefix + "ENDING A", existing_ids=set())
+        second = generate_note_id(prefix + "ENDING B", existing_ids={first})
+        self.assertNotEqual(first, second)
+        self.assertLessEqual(len(first), 128)
+        self.assertLessEqual(len(second), 128)
+
 
 if __name__ == "__main__":
     unittest.main()

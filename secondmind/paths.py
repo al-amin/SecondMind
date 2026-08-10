@@ -15,7 +15,11 @@ import time
 from pathlib import Path
 
 _NOTE_ID_PATTERN = re.compile(r"^[a-z0-9-]+$")
-_MAX_NOTE_ID_LENGTH = 128
+
+MAX_NOTE_ID_LENGTH = 128
+"""The hard cap every note id must respect — shared with
+:func:`secondmind.models.generate_note_id`, which must never produce an id
+this module's own :func:`validate_note_id` would reject."""
 
 _REPLACE_RETRY_ATTEMPTS = 5
 _REPLACE_RETRY_DELAY_SECONDS = 0.1
@@ -65,8 +69,8 @@ def validate_note_id(note_id: str) -> None:
     """
     if not isinstance(note_id, str) or not note_id:
         raise InvalidNoteIdError("note id must be a non-empty string")
-    if len(note_id) > _MAX_NOTE_ID_LENGTH:
-        raise InvalidNoteIdError(f"note id exceeds {_MAX_NOTE_ID_LENGTH} characters")
+    if len(note_id) > MAX_NOTE_ID_LENGTH:
+        raise InvalidNoteIdError(f"note id exceeds {MAX_NOTE_ID_LENGTH} characters")
     if not _NOTE_ID_PATTERN.match(note_id):
         raise InvalidNoteIdError(
             f"note id {note_id!r} must match [a-z0-9-]+ — no slashes, "

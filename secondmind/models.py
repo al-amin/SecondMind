@@ -13,6 +13,8 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 
+from secondmind.paths import MAX_NOTE_ID_LENGTH
+
 _REQUIRED_FIELDS = ("id", "type", "title", "created", "updated")
 _SLUG_PATTERN = re.compile(r"[^a-z0-9]+")
 
@@ -100,17 +102,34 @@ class KnowledgeItem:
         )
 
 
+_ID_SUFFIX_DIGEST_SIZE = 4  # -> 8 hex chars
+_ID_RESERVED_FOR_SUFFIX_AND_ATTEMPTS = 1 + (_ID_SUFFIX_DIGEST_SIZE * 2) + len("-999")
+
+
 def generate_note_id(title: str, existing_ids: set[str]) -> str:
     """Generate a unique note id: a slug of ``title`` plus a short hash suffix.
 
-    Guaranteed to match the ``[a-z0-9-]+`` shape :func:`secondmind.paths.validate_note_id`
+    Guaranteed to match the ``[a-z0-9-]+`` shape and the
+    :data:`secondmind.paths.MAX_NOTE_ID_LENGTH` cap :func:`secondmind.paths.validate_note_id`
     requires, and guaranteed unique against ``existing_ids``.
+
+    The slug is truncated, not the title itself, so an ordinary long
+    descriptive title (a real scenario — SPEC.md's own documented title
+    limit is 300 chars, well past the point a naive untruncated slug would
+    exceed the id cap) never fails outright. Truncating the slug rather
+    than raising is the right call here: the hash suffix already
+    guarantees uniqueness on its own, so information lost to truncation
+    doesn't create a collision risk — a bug fix, not a workaround, found
+    via a real 180-character title in tests/test_complex_scenarios.py.
     """
     slug = _SLUG_PATTERN.sub("-", title.lower()).strip("-")
     if not slug:
         slug = "note"
 
-    suffix = hashlib.blake2b(title.encode("utf-8"), digest_size=4).hexdigest()
+    max_slug_length = MAX_NOTE_ID_LENGTH - _ID_RESERVED_FOR_SUFFIX_AND_ATTEMPTS
+    slug = slug[:max_slug_length].strip("-") or "note"
+
+    suffix = hashlib.blake2b(title.encode("utf-8"), digest_size=_ID_SUFFIX_DIGEST_SIZE).hexdigest()
     candidate = f"{slug}-{suffix}"
     attempt = 0
     while candidate in existing_ids:
