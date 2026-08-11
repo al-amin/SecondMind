@@ -45,6 +45,12 @@ class VaultStore:
     def __init__(self, vault_root: Path) -> None:
         self._vault_root = vault_root
 
+    @property
+    def vault_root(self) -> Path:
+        """The vault directory this store reads/writes — read-only, callers
+        (the dashboard's settings display) must never mutate it in place."""
+        return self._vault_root
+
     def _existing_ids(self) -> set[str]:
         if not self._vault_root.exists():
             return set()

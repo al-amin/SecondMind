@@ -93,6 +93,12 @@ class SqliteIndex:
         self._connection = self._open_recovering_from_corruption(db_path)
         self._fts5_available = _fts5_available()
 
+    @property
+    def db_path(self) -> Path:
+        """The SQLite file this index reads/writes — read-only, callers
+        (the dashboard's settings display) must never mutate it in place."""
+        return self._db_path
+
     def _open_recovering_from_corruption(self, db_path: Path) -> sqlite3.Connection:
         """Open ``db_path``, deleting and recreating it if it's not a
         valid SQLite file. The index is documented as always rebuildable

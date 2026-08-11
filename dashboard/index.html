@@ -3,39 +3,77 @@
 <head>
   <meta charset="utf-8" />
   <title>SecondMind</title>
-  <style>
-    body { font-family: -apple-system, system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
-    input { width: 100%; padding: 0.5rem; font-size: 1rem; box-sizing: border-box; }
-    ul { list-style: none; padding: 0; }
-    li { padding: 0.5rem 0; border-bottom: 1px solid #eee; cursor: pointer; }
-    li:hover { background: #f7f7f7; }
-    #note-view { white-space: pre-wrap; border: 1px solid #ddd; padding: 1rem; margin-top: 1rem; display: none; }
-    #new-note { border: 1px solid #ddd; padding: 1rem; margin-top: 2rem; }
-    #new-note input, #new-note textarea, #new-note select { width: 100%; margin-bottom: 0.5rem; padding: 0.5rem; font-size: 1rem; box-sizing: border-box; }
-    #new-note textarea { min-height: 6rem; font-family: inherit; }
-    #new-note button { padding: 0.5rem 1rem; }
-    #new-note-status { margin-top: 0.5rem; font-size: 0.9rem; }
-  </style>
+  <link rel="stylesheet" href="app.css" />
 </head>
 <body>
-  <h1>SecondMind</h1>
-  <p>One memory. Every AI. Any machine.</p>
-  <input id="search-box" type="text" placeholder="Search your memory..." />
-  <ul id="results"></ul>
-  <pre id="note-view"></pre>
+  <div id="app">
+    <aside id="sidebar">
+      <div id="brand">
+        <h1>SecondMind</h1>
+        <p id="tagline">One memory. Every AI. Any machine.</p>
+      </div>
 
-  <div id="new-note">
-    <h2>New note</h2>
-    <select id="new-note-type">
-      <option value="core">core</option>
-      <option value="semantic">semantic</option>
-      <option value="episodic">episodic</option>
-      <option value="procedural">procedural</option>
-    </select>
-    <input id="new-note-title" type="text" placeholder="Title" />
-    <textarea id="new-note-body" placeholder="Body"></textarea>
-    <button id="new-note-submit">Save</button>
-    <div id="new-note-status"></div>
+      <div id="search-wrap">
+        <input id="search-box" type="text" placeholder="Search your memory..." autofocus />
+        <span id="search-spinner" class="spinner" hidden></span>
+      </div>
+
+      <div id="results-wrap">
+        <ul id="results"></ul>
+        <p id="results-empty" class="empty-state" hidden>No notes yet — save your first one below, or ask Claude to remember something for you.</p>
+        <p id="results-no-match" class="empty-state" hidden>No notes match that search.</p>
+      </div>
+
+      <button id="settings-toggle" type="button">⚙ Settings</button>
+    </aside>
+
+    <main id="content">
+      <section id="note-view" hidden>
+        <div id="note-view-header">
+          <h2 id="note-view-title"></h2>
+          <button id="note-view-close" type="button" aria-label="Close">×</button>
+        </div>
+        <div id="note-view-meta"></div>
+        <pre id="note-view-body"></pre>
+      </section>
+
+      <section id="new-note">
+        <h2>New note</h2>
+        <label for="new-note-type">Type</label>
+        <select id="new-note-type">
+          <option value="core">core</option>
+          <option value="semantic">semantic</option>
+          <option value="episodic">episodic</option>
+          <option value="procedural">procedural</option>
+        </select>
+        <label for="new-note-title">Title</label>
+        <input id="new-note-title" type="text" placeholder="What's this about?" />
+        <label for="new-note-body">Body</label>
+        <textarea id="new-note-body" placeholder="The actual note..."></textarea>
+        <div id="new-note-actions">
+          <button id="new-note-submit" type="button">Save note</button>
+          <span id="new-note-status"></span>
+        </div>
+      </section>
+
+      <section id="settings-panel" hidden>
+        <h2>Settings</h2>
+        <p class="settings-note">
+          Vault and index location are set via <code>SECONDMIND_VAULT</code>/
+          <code>SECONDMIND_INDEX_DB</code> environment variables (or the Claude Desktop
+          extension's Configure dialog) before the server starts — this panel shows what's
+          currently active, but changing it here isn't supported yet.
+        </p>
+        <dl id="settings-list">
+          <dt>Vault location</dt>
+          <dd id="settings-vault">—</dd>
+          <dt>Search index</dt>
+          <dd id="settings-index">—</dd>
+          <dt>Notes stored</dt>
+          <dd id="settings-count">—</dd>
+        </dl>
+      </section>
+    </main>
   </div>
 
   <script src="app.js"></script>

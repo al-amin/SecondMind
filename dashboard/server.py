@@ -29,6 +29,7 @@ _STATIC_FILES = {
     "/": ("index.html", "text/html"),
     "/index.html": ("index.html", "text/html"),
     "/app.js": ("app.js", "application/javascript"),
+    "/app.css": ("app.css", "text/css"),
 }
 
 
@@ -65,6 +66,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
             items = self._store.list()
             return 200, "application/json", json.dumps(
                 {"items": [{"id": item.id, "title": item.title} for item in items]}
+            )
+
+        if parsed.path == "/api/settings":
+            return 200, "application/json", json.dumps(
+                {
+                    "vault_dir": str(self._store.vault_root),
+                    "index_db": str(self._index.db_path),
+                    "note_count": len(self._store.list()),
+                }
             )
 
         if parsed.path.startswith("/api/note/"):

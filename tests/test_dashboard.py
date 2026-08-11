@@ -106,6 +106,26 @@ class TestNoteEndpoint(DashboardTestCase):
         self.assertIn("error", payload)
 
 
+class TestSettingsEndpoint(DashboardTestCase):
+    def test_settings_reports_vault_and_index_paths(self) -> None:
+        status, payload = self._handle("/api/settings")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["vault_dir"], str(self.vault_root))
+        self.assertEqual(payload["index_db"], str(self.db_path))
+
+    def test_settings_reports_note_count(self) -> None:
+        self.store.put(id="a", type=KnowledgeType.CORE, title="A", body="x")
+        self.store.put(id="b", type=KnowledgeType.CORE, title="B", body="x")
+        status, payload = self._handle("/api/settings")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["note_count"], 2)
+
+    def test_settings_reports_zero_notes_on_empty_vault(self) -> None:
+        status, payload = self._handle("/api/settings")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["note_count"], 0)
+
+
 class TestUnknownRoute(DashboardTestCase):
     def test_unknown_api_path_returns_404(self) -> None:
         status, _ = self._handle("/api/not-a-real-endpoint")
@@ -220,6 +240,12 @@ class TestServerBinding(unittest.TestCase):
                     html = response.read().decode("utf-8")
                     response.close()
                     self.assertIn("SecondMind", html)
+
+                    response = urllib.request.urlopen(f"http://127.0.0.1:{port}/app.css", timeout=5)
+                    css = response.read().decode("utf-8")
+                    self.assertEqual(response.headers.get("Content-Type"), "text/css")
+                    response.close()
+                    self.assertIn("SecondMind", css)
                 finally:
                     server.shutdown()
                     thread.join(timeout=5)
