@@ -13,8 +13,8 @@
     "type": "binary",
     "entry_point": "run.sh",
     "mcp_config": {
-      "command": "${__dirname}/run.sh",
-      "args": [],
+      "command": "/bin/sh",
+      "args": ["${__dirname}/run.sh"],
       "env": {
         "SECONDMIND_REPO_DIR": "${user_config.repo_dir}",
         "SECONDMIND_VAULT": "${user_config.vault_dir}",

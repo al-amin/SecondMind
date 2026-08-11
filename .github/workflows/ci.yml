@@ -195,6 +195,35 @@ jobs:
           grep -q '"result"' response.json
         shell: bash
 
+      # Real bug found on a real machine: Claude Desktop's copy-into-its-own-
+      # storage step does not reliably preserve run.sh's executable bit, so
+      # a direct exec (the old manifest.json command) failed with "Failed to
+      # spawn process: Permission denied" even though run.sh itself was
+      # never broken. Fixed by invoking it through /bin/sh explicitly in
+      # manifest.json's mcp_config (command:"/bin/sh", args:["run.sh"]) --
+      # a shell interpreter reads script content, it doesn't care about the
+      # file's own execute permission. This step proves the fix by
+      # deliberately stripping the bit and confirming manifest.json's ACTUAL
+      # resolved command (not a hand-invoked ./run.sh) still works.
+      - name: run.sh works via manifest.json's resolved command even with NO execute bit (POSIX)
+        if: runner.os != 'Windows'
+        run: |
+          COPY_DIR="$(mktemp -d)/copied-extension-noexec"
+          cp -r claude-desktop-extension "$COPY_DIR"
+          chmod -x "$COPY_DIR/run.sh"
+          if [ -x "$COPY_DIR/run.sh" ]; then
+            echo "::error::failed to strip the executable bit for this test"
+            exit 1
+          fi
+          export SECONDMIND_REPO_DIR="$GITHUB_WORKSPACE"
+          export SECONDMIND_VAULT="$(mktemp -d)/vault"
+          export SECONDMIND_INDEX_DB="$(mktemp -d)/index.db"
+          echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2026-07-28","capabilities":{},"clientInfo":{"name":"ci","version":"1.0"}}}' \
+            | /bin/sh "$COPY_DIR/run.sh" > response-noexec.json
+          cat response-noexec.json
+          grep -q '"result"' response-noexec.json
+        shell: bash
+
       - name: run.sh rejects a missing SECONDMIND_REPO_DIR cleanly (POSIX)
         if: runner.os != 'Windows'
         run: |
