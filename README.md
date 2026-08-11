@@ -70,7 +70,11 @@ installed. No manual config file editing required — one extra field to fill in
 **Either platform:** if it doesn't connect, run `python3 scripts/diagnose.py` (macOS) or
 `python scripts\diagnose.py` (Windows) from inside your clone — one command, checks Python/
 `uv`/the venv/vault/both client registrations and whether an already-installed extension copy
-is stale, and tells you exactly what to fix.
+is stale, and tells you exactly what to fix. On Windows, if you're not sure Python is even
+installed, run `scripts\diagnose.bat` (double-click it, or run it in cmd.exe) instead —
+`diagnose.py` needs Python to already exist to run at all, so it can't diagnose "Python is
+missing"; `diagnose.bat` is plain batch, checks for that first, and hands off to `diagnose.py`
+once confirmed.
 
 Once connected, in a new chat: *"Remember that I prefer TypeScript over JavaScript for new
 projects."* Then, in any future chat: *"What do you know about my language preferences?"*

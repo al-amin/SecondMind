@@ -252,8 +252,15 @@ claude mcp remove secondmind
 **Run this first — before anything below:**
 
 ```bash
-python3 scripts/diagnose.py
+python3 scripts/diagnose.py     # macOS/Linux
+python scripts\diagnose.py      # Windows
 ```
+
+Not sure Python is even installed on Windows? Run `scripts\diagnose.bat` instead (double-click
+it, or run it in `cmd.exe`) — `diagnose.py` needs Python to already exist to run at all, so it
+can't diagnose "Python is completely missing" from inside itself. `diagnose.bat` (and its
+PowerShell equivalent, `diagnose.ps1`) is plain batch, no Python required, checks whether any
+Python interpreter exists on PATH first, and only hands off to `diagnose.py` once confirmed.
 
 One command, no `uv`/deps required to run it. Checks Python, `uv`, the SecondMind venv,
 vault/index existence and permissions, both client registrations (Claude Desktop's config

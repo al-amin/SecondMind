@@ -100,6 +100,21 @@ jobs:
         run: python diagnose.py
         working-directory: scripts
 
+      # diagnose.py itself needs Python to already exist to run at all --
+      # it can never diagnose "Python is completely missing" from inside
+      # itself. diagnose.bat/.ps1 are plain batch/PowerShell, no Python
+      # required to run them, and their only job is answering that one
+      # question first before handing off to diagnose.py.
+      - name: diagnose.bat runs cleanly (Windows)
+        if: runner.os == 'Windows'
+        run: scripts\diagnose.bat
+        shell: cmd
+
+      - name: diagnose.ps1 runs cleanly (Windows)
+        if: runner.os == 'Windows'
+        run: ./scripts/diagnose.ps1
+        shell: pwsh
+
       - name: Test-vault wrapper — POSIX (with_test_vault.sh)
         if: runner.os != 'Windows'
         run: |
