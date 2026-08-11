@@ -49,7 +49,13 @@ _KNOWLEDGE_TYPE_ENUM = [member.value for member in KnowledgeType]
 TOOLS: list[Tool] = [
     Tool(
         name="secondmind_put",
-        description="Create or update a note in SecondMind's memory.",
+        description=(
+            "Save a fact, decision, or lesson to SecondMind's persistent cross-session memory. "
+            "Call this proactively — without being asked to 'remember' or 'save' — whenever the "
+            "user states a durable personal fact, preference, decision, or lesson learned that "
+            "would be useful to recall in a future conversation or on a different device/client. "
+            "Do not use this for ephemeral conversational context that has no lasting value."
+        ),
         input_schema={
             "$schema": _SCHEMA,
             "type": "object",
@@ -67,7 +73,12 @@ TOOLS: list[Tool] = [
     ),
     Tool(
         name="secondmind_get",
-        description="Retrieve one note by id from SecondMind's memory.",
+        description=(
+            "Retrieve one specific note by its exact id from SecondMind's persistent memory. "
+            "Use this only when you already have a note id (e.g. from a prior secondmind_search "
+            "or secondmind_list result) — for any recall question where you don't yet have an "
+            "id, call secondmind_search instead."
+        ),
         input_schema={
             "$schema": _SCHEMA,
             "type": "object",
@@ -77,7 +88,17 @@ TOOLS: list[Tool] = [
     ),
     Tool(
         name="secondmind_search",
-        description="Hybrid BM25+semantic search over SecondMind's memory.",
+        description=(
+            "Search SecondMind's persistent cross-session memory for anything the user (or a "
+            "past conversation, possibly on a different device or AI client) has previously "
+            "told it to remember. Call this proactively — without being asked to 'check memory' "
+            "or 'use SecondMind' — whenever the user asks a recall question: 'do I know "
+            "anything about X', 'what did we decide about X', 'have I mentioned X before', "
+            "'what's the lesson/incident/note about X', or any question whose answer might "
+            "already be stored rather than something you'd otherwise say you don't have context "
+            "for. Search by meaning/topic, not by guessing an exact title. If this returns no "
+            "results, that means nothing is stored — say so plainly rather than guessing."
+        ),
         input_schema={
             "$schema": _SCHEMA,
             "type": "object",
@@ -91,7 +112,12 @@ TOOLS: list[Tool] = [
     ),
     Tool(
         name="secondmind_list",
-        description="List notes in SecondMind's memory, optionally filtered by type/tag.",
+        description=(
+            "Browse all notes in SecondMind's persistent memory, optionally filtered by type or "
+            "tag — use this to see what's stored overall (e.g. 'what's in my memory', 'what "
+            "have I saved') rather than searching for a specific topic, which secondmind_search "
+            "handles better."
+        ),
         input_schema={
             "$schema": _SCHEMA,
             "type": "object",
