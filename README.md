@@ -25,8 +25,9 @@ installed. No manual config file editing required.
    `claude-desktop-extension` folder inside your clone.
 3. (Optional) Click **Configure** to change where your vault lives — it defaults to
    `~/.secondmind/vault`, created automatically on first use.
-4. Fully quit and reopen Claude Desktop (closing the window is not enough — see
-   [`TESTING_WITH_CLAUDE.md`](./TESTING_WITH_CLAUDE.md) if it doesn't connect).
+4. Fully quit and reopen Claude Desktop (closing the window is not enough). If it doesn't
+   connect, run `python3 scripts/diagnose.py` — one command, checks Python/`uv`/the venv/vault/
+   both client registrations and tells you exactly what to fix, before you need to ask anyone.
 5. In a new chat: *"Remember that I prefer TypeScript over JavaScript for new projects."*
    Then, in any future chat: *"What do you know about my language preferences?"*
 

@@ -96,6 +96,10 @@ jobs:
 
       - uses: astral-sh/setup-uv@v7
 
+      - name: diagnose.py reports every check PASS on a correctly set-up machine
+        run: python diagnose.py
+        working-directory: scripts
+
       - name: Test-vault wrapper — POSIX (with_test_vault.sh)
         if: runner.os != 'Windows'
         run: |

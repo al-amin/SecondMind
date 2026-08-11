@@ -249,10 +249,27 @@ claude mcp remove secondmind
 
 ## If something doesn't work
 
+**Run this first — before anything below:**
+
+```bash
+python3 scripts/diagnose.py
+```
+
+One command, no `uv`/deps required to run it. Checks Python, `uv`, the SecondMind venv,
+vault/index existence and permissions, both client registrations (Claude Desktop's config
+file + installed extension, and `claude mcp list`), and the real SecondMind server log for
+error signals — never dumps full log content, only matched error lines (a log line can
+contain a note's real title/body verbatim, and this stays local-first by design, per
+SPEC.md's compliance section). Every FAIL/WARN line names the exact next command to run.
+This is what to paste into a bug report, not a description of what you tried.
+
+If it reports all PASS and something's still wrong, the table below covers what the
+diagnostic can't see directly (in-conversation behavior, not process/file state):
+
 | Symptom | Likely cause | Check |
 |---|---|---|
-| Tools icon missing in Desktop | Config JSON malformed, or server crashed on startup | `jq empty` the config; `tail ~/Library/Logs/Claude/mcp-server-secondmind.log` |
+| Tools icon missing in Desktop | Config JSON malformed, or server crashed on startup | `python3 scripts/diagnose.py` first; falls back to `jq empty` the config + `tail ~/Library/Logs/Claude/mcp-server-secondmind.log` |
 | `claude mcp list` shows `✘ Failed to connect` | Wrong `--directory` path, or `uv`/`--extra mcp` args copied incorrectly | Run the exact same command by hand in a terminal — the real error will print directly |
 | Desktop connects but tool calls fail | Server started but crashed on a specific call | `tail -f ~/Library/Logs/Claude/mcp-server-secondmind.log` while retrying the tool call in Claude |
-| `ModuleNotFoundError: No module named 'mcp'` | A client bypassed `uv run` and used a bare `python3` that doesn't have `mcp` installed | Re-check the config uses `uv run --directory ... --extra mcp python3 ...`, not a bare interpreter path |
+| `ModuleNotFoundError: No module named 'mcp'` | A client bypassed `uv run` and used a bare interpreter that doesn't have `mcp` installed | Re-check the config uses `uv run --directory ... --extra mcp -m secondmind_mcp.server`, not a bare interpreter path |
 | Search finds nothing after `put` worked | Normal for `import`/`migrate` (they don't auto-index) — not for `put` (which does) | Run `secondmind rebuild` (via CLI or ask Claude to call the rebuild path) |
