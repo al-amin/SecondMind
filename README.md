@@ -15,21 +15,65 @@ a fast local search index, and a standard MCP server so Claude Desktop, Claude C
 future MCP-compliant client can read and write it — no server to run, no account to create, no
 data leaving your machine.
 
+## Why `uv`
+
+The core CLI (`python3 -m secondmind ...`) needs nothing beyond a stock Python — but the MCP
+server Claude Desktop/Code actually talks to (`secondmind_mcp/`) has one real, hard dependency:
+the official [`mcp`](https://pypi.org/project/mcp/) SDK. `uv` isn't magic — it's just the
+recommended way to get that installed into an isolated environment automatically, so it never
+conflicts with whatever else is on your system Python.
+
+The one-click Claude Desktop extension below always uses `uv` (it's baked into
+`manifest.json`, which is what makes install a single click rather than a manual venv setup).
+If you're registering SecondMind manually instead (Claude Code, or Option B in
+[`TESTING_WITH_CLAUDE.md`](./TESTING_WITH_CLAUDE.md)), you can manage the venv yourself and
+skip `uv` entirely:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -e ".[mcp]"
+python -m secondmind_mcp.server   # point Claude's config at this venv's python instead of uv
+```
+
 ## Quick start — Claude Desktop (recommended, no config editing)
 
-You only need Claude Desktop and [`uv`](https://docs.astral.sh/uv/getting-started/installation/)
-installed. No manual config file editing required.
+You need Claude Desktop and [`uv`](https://docs.astral.sh/uv/getting-started/installation/)
+installed. No manual config file editing required — one extra field to fill in at install time.
 
-1. Clone this repo: `git clone https://github.com/al-amin/SecondMind.git`
-2. Claude Desktop → **Settings → Extensions → Install Unpacked Extension** → select the
+**macOS:**
+
+1. Install `uv` if you don't have it: `brew install uv` (or the installer script on the page
+   linked above).
+2. Clone this repo: `git clone https://github.com/al-amin/SecondMind.git`
+3. Claude Desktop → **Settings → Extensions → Install Unpacked Extension** → select the
    `claude-desktop-extension` folder inside your clone.
-3. (Optional) Click **Configure** to change where your vault lives — it defaults to
-   `~/.secondmind/vault`, created automatically on first use.
-4. Fully quit and reopen Claude Desktop (closing the window is not enough). If it doesn't
-   connect, run `python3 scripts/diagnose.py` — one command, checks Python/`uv`/the venv/vault/
-   both client registrations and tells you exactly what to fix, before you need to ask anyone.
-5. In a new chat: *"Remember that I prefer TypeScript over JavaScript for new projects."*
-   Then, in any future chat: *"What do you know about my language preferences?"*
+4. Click **Configure** and set **SecondMind repo location** to the full path of your clone
+   (the folder containing `pyproject.toml`) — this is required. Claude Desktop copies the
+   extension's own files elsewhere on install, so the launcher can no longer find the repo on
+   its own; this field is the only way it knows where your clone actually is. Vault/index
+   location can stay at their defaults.
+5. Click **Save**, then fully quit and reopen Claude Desktop (closing the window is not enough).
+
+**Windows:**
+
+1. Install `uv`: open PowerShell and run
+   `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
+   (or see the [official installer docs](https://docs.astral.sh/uv/getting-started/installation/)).
+2. Clone this repo: `git clone https://github.com/al-amin/SecondMind.git`
+3. Claude Desktop → **Settings → Extensions → Install Unpacked Extension** → select the
+   `claude-desktop-extension` folder inside your clone.
+4. Click **Configure** and set **SecondMind repo location** to the full path of your clone
+   (e.g. `C:\Users\yourname\SecondMind`) — required, same reason as above.
+5. Click **Save**, then fully quit and reopen Claude Desktop.
+
+**Either platform:** if it doesn't connect, run `python3 scripts/diagnose.py` (macOS) or
+`python scripts\diagnose.py` (Windows) from inside your clone — one command, checks Python/
+`uv`/the venv/vault/both client registrations and whether an already-installed extension copy
+is stale, and tells you exactly what to fix.
+
+Once connected, in a new chat: *"Remember that I prefer TypeScript over JavaScript for new
+projects."* Then, in any future chat: *"What do you know about my language preferences?"*
 
 ## Quick start — Claude Code
 
