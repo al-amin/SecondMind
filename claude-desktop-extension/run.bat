@@ -10,7 +10,28 @@ rem processes can launch with a PATH that doesn't include wherever uv was
 rem installed.
 
 setlocal enabledelayedexpansion
-set REPO_ROOT=%~dp0..
+
+rem REPO_ROOT comes from SECONDMIND_REPO_DIR (the manifest's repo_dir
+rem user_config field), never from this script's own location -- Claude
+rem Desktop copies the whole claude-desktop-extension\ folder into its own
+rem private storage on install, so "the directory above this script" is
+rem Claude Desktop's extension cache, not the actual cloned repo. Confirmed
+rem by reproducing this exact failure on a real machine: it produced
+rem "ModuleNotFoundError: No module named 'secondmind_mcp'" because
+rem --directory pointed at the wrong place.
+set REPO_ROOT=%SECONDMIND_REPO_DIR%
+if "%REPO_ROOT%"=="" (
+    echo secondmind: SECONDMIND_REPO_DIR is not set. 1>&2
+    echo Open Claude Desktop -^> Settings -^> Extensions -^> secondmind -^> Configure, 1>&2
+    echo and set 'SecondMind repo location' to the folder where you cloned 1>&2
+    echo https://github.com/al-amin/SecondMind ^(the folder containing pyproject.toml^). 1>&2
+    exit /b 1
+)
+if not exist "%REPO_ROOT%\pyproject.toml" (
+    echo secondmind: "%REPO_ROOT%" does not look like a SecondMind clone ^(no pyproject.toml^). 1>&2
+    echo Check the 'SecondMind repo location' value in Claude Desktop's Configure dialog. 1>&2
+    exit /b 1
+)
 
 rem !ERRORLEVEL! (delayed expansion), not %ERRORLEVEL% -- inside a
 rem parenthesized if-block, %VAR% is substituted once at parse time

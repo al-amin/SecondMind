@@ -236,6 +236,17 @@ def _claude_desktop_log_dir() -> Path:
     return Path.home() / ".config" / "Claude" / "logs"
 
 
+def _claude_desktop_extensions_dir() -> Path | None:
+    system = platform.system()
+    if system == "Darwin":
+        return Path.home() / "Library" / "Application Support" / "Claude" / "Claude Extensions"
+    if system == "Windows":
+        appdata = os.environ.get("APPDATA")
+        base = Path(appdata) if appdata else Path.home() / "AppData" / "Roaming"
+        return base / "Claude" / "Claude Extensions"
+    return None
+
+
 def check_claude_desktop() -> None:
     print("\n== Claude Desktop ==")
     config_path = _claude_desktop_config_path()
@@ -272,18 +283,38 @@ def check_claude_desktop() -> None:
                     "expected — the extension does not use this file.",
                 )
 
-    extensions_dir = None
-    if platform.system() == "Darwin":
-        extensions_dir = Path.home() / "Library" / "Application Support" / "Claude" / "Claude Extensions"
-    elif platform.system() == "Windows":
-        appdata = os.environ.get("APPDATA")
-        base = Path(appdata) if appdata else Path.home() / "AppData" / "Roaming"
-        extensions_dir = base / "Claude" / "Claude Extensions"
+    extensions_dir = _claude_desktop_extensions_dir()
 
     if extensions_dir is not None and extensions_dir.exists():
         matches = [p for p in extensions_dir.iterdir() if "secondmind" in p.name.lower()]
         if matches:
-            _record("PASS", "SecondMind extension installed", f"{matches[0]}")
+            installed_dir = matches[0]
+            _record("PASS", "SecondMind extension installed", f"{installed_dir}")
+
+            # Claude Desktop copies claude-desktop-extension/ into this
+            # directory at install time — it is a frozen snapshot, not a
+            # live link back to the repo. A `git pull` in the repo does
+            # nothing to this copy; only reinstalling the extension does.
+            # Real bug this catches: an installed copy from before the
+            # repo_dir fix has no SECONDMIND_REPO_DIR reference at all and
+            # fails with "ModuleNotFoundError: No module named
+            # 'secondmind_mcp'" — confirmed on a real user's machine.
+            launcher_name = "run.bat" if platform.system() == "Windows" else "run.sh"
+            launcher = installed_dir / launcher_name
+            if launcher.exists():
+                content = launcher.read_text(encoding="utf-8", errors="replace")
+                if "SECONDMIND_REPO_DIR" in content:
+                    _record("PASS", "Installed extension is up to date", f"{launcher} references SECONDMIND_REPO_DIR.")
+                else:
+                    _record(
+                        "FAIL",
+                        "Installed extension is up to date",
+                        f"{launcher} does NOT reference SECONDMIND_REPO_DIR — this is a stale "
+                        "copy from before that fix, installed before you pulled the latest code. "
+                        "A `git pull` in your repo clone does NOT update this installed copy. "
+                        "Fix: Uninstall the extension in Claude Desktop, then reinstall it fresh "
+                        "from your updated repo's claude-desktop-extension/ folder.",
+                    )
         else:
             _record(
                 "WARN",

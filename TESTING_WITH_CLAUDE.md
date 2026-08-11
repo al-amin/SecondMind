@@ -42,30 +42,30 @@ the exact `manifest_version 0.3` schema already proven working on this machine (
 `al-amin-mcp`/AUPS extension uses the same shape — `manifest.json` + `run.sh` + `icon.png`).
 
 1. Claude Desktop → **Settings → Extensions → Install Unpacked Extension**
-2. Select the folder: `claude-desktop-extension` (wherever you cloned this repo — the
-   extension resolves its own location and the repo root at `${__dirname}`, never a
-   hardcoded path, so this works from any clone location on any machine).
+2. Select the folder: `claude-desktop-extension` (wherever you cloned this repo).
 3. It appears under "Installed on your computer", with a **Configure** button.
-4. Click **Configure** and set **Vault location** to
-   `~/.secondmind-test/vault` — this is the one manual step, and it's exactly why Option A
-   isn't fully zero-config: Claude Desktop's extension manifest can supply a sensible
-   default (`~/.secondmind/vault`), but it can't know you specifically want a *throwaway*
-   test vault instead of your real one for this exercise. **Search index location**
-   defaults to `~/.secondmind/index.db` alongside it; change it to
-   `~/.secondmind-test/index.db` to match.
+4. Click **Configure** and fill in:
+   - **SecondMind repo location (required)** — the absolute path to wherever you cloned this
+     repo (the folder containing `pyproject.toml`, one level *above* `claude-desktop-extension`).
+     This field is required, not optional: Claude Desktop copies the extension's own files into
+     its own private storage on install (`~/Library/Application Support/Claude/Claude
+     Extensions/...` on macOS, `%APPDATA%\Claude\Claude Extensions\...` on Windows), so the
+     launcher can no longer find the repo by looking at its own location — confirmed via a real
+     "ModuleNotFoundError: No module named 'secondmind_mcp'" failure when this wasn't set,
+     reproduced independently on a real Windows machine and on this Mac. Click **Save**.
+   - **Vault location** — for this test, set it to `~/.secondmind-test/vault` (a throwaway
+     path, so you can delete it afterward without touching anything real). For everyday use
+     later, leave it at the default (`~/.secondmind/vault`).
+   - **Search index location** — same idea, `~/.secondmind-test/index.db` for this test.
 5. Fully quit and reopen Claude Desktop (see restart instructions below — closing the window
    is not enough).
 
 This is the easier path — skip straight to "Verify it connected" below. Use Option B only if
 you want to hand-edit the config directly, or the extension install fails for some reason.
 
-**Vault location, for real everyday use (not just this test):** if you're installing this to
-actually use, skip step 4 entirely and keep the default — every user gets their own
-`~/.secondmind/vault` with zero configuration required. The extension's `manifest.json`
-declares `vault_dir`/`index_db` as `user_config` entries (Claude Desktop's own mechanism for
-per-user settings filled in via the Configure dialog, substituted into the launch command as
-`${user_config.vault_dir}`) — there is no path in the manifest tied to any one person's
-machine or home directory.
+**Before any of the above, run `python3 scripts/diagnose.py`** — it checks whether `uv` is
+installed and the venv actually resolves, which the extension itself can't tell you if it
+fails to start at all.
 
 ### Option B — Manual `claude_desktop_config.json` edit
 

@@ -16,6 +16,7 @@
       "command": "${__dirname}/run.sh",
       "args": [],
       "env": {
+        "SECONDMIND_REPO_DIR": "${user_config.repo_dir}",
         "SECONDMIND_VAULT": "${user_config.vault_dir}",
         "SECONDMIND_INDEX_DB": "${user_config.index_db}"
       },
@@ -27,6 +28,12 @@
     }
   },
   "user_config": {
+    "repo_dir": {
+      "type": "directory",
+      "title": "SecondMind repo location (required)",
+      "description": "The folder where you cloned https://github.com/al-amin/SecondMind — Claude Desktop copies this extension's own files elsewhere when installing it, so the launcher can no longer find the repo on its own. Point this at your actual clone (the folder containing pyproject.toml), not the extension folder itself.",
+      "required": true
+    },
     "vault_dir": {
       "type": "directory",
       "title": "Vault location",

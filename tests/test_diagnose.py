@@ -13,6 +13,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import platform
 import sys
 import tempfile
 import unittest
@@ -73,6 +74,52 @@ class TestCheckClaudeDesktopConfig(unittest.TestCase):
         diagnose.check_claude_desktop()
         statuses = {check: status for status, check, _ in diagnose._RESULTS}
         self.assertEqual(statuses["secondmind registered in Claude Desktop config"], "WARN")
+
+
+class TestCheckInstalledExtensionFreshness(unittest.TestCase):
+    """Claude Desktop copies claude-desktop-extension/ into its own private
+    storage at install time -- a `git pull` in the repo does nothing to
+    that copy. Real bug this guards against: a copy installed before the
+    SECONDMIND_REPO_DIR fix has no reference to it and fails with
+    "ModuleNotFoundError: No module named 'secondmind_mcp'" (confirmed on
+    a real user's Windows machine and reproduced independently on macOS)."""
+
+    def setUp(self) -> None:
+        diagnose._RESULTS.clear()
+        self._tmp = tempfile.TemporaryDirectory()
+        self._orig_config_path = diagnose._claude_desktop_config_path
+        self._orig_log_dir = diagnose._claude_desktop_log_dir
+        self._orig_extensions_dir = diagnose._claude_desktop_extensions_dir
+        diagnose._claude_desktop_config_path = lambda: Path(self._tmp.name) / "no-config.json"
+        diagnose._claude_desktop_log_dir = lambda: Path(self._tmp.name) / "no-such-log-dir"
+
+    def tearDown(self) -> None:
+        diagnose._claude_desktop_config_path = self._orig_config_path
+        diagnose._claude_desktop_log_dir = self._orig_log_dir
+        diagnose._claude_desktop_extensions_dir = self._orig_extensions_dir
+        self._tmp.cleanup()
+
+    def _make_installed_copy(self, launcher_name: str, launcher_content: str) -> Path:
+        extensions_dir = Path(self._tmp.name) / "extensions"
+        installed = extensions_dir / "local.unpacked.al-amin.secondmind"
+        installed.mkdir(parents=True)
+        (installed / launcher_name).write_text(launcher_content, encoding="utf-8")
+        diagnose._claude_desktop_extensions_dir = lambda: extensions_dir
+        return installed
+
+    def test_up_to_date_launcher_referencing_repo_dir_passes(self) -> None:
+        launcher_name = "run.bat" if platform.system() == "Windows" else "run.sh"
+        self._make_installed_copy(launcher_name, "echo %SECONDMIND_REPO_DIR%")
+        diagnose.check_claude_desktop()
+        statuses = {check: status for status, check, _ in diagnose._RESULTS}
+        self.assertEqual(statuses["Installed extension is up to date"], "PASS")
+
+    def test_stale_launcher_without_repo_dir_reference_fails(self) -> None:
+        launcher_name = "run.bat" if platform.system() == "Windows" else "run.sh"
+        self._make_installed_copy(launcher_name, "exec uv run --directory \"$REPO_ROOT\" -m secondmind_mcp.server")
+        diagnose.check_claude_desktop()
+        statuses = {check: status for status, check, _ in diagnose._RESULTS}
+        self.assertEqual(statuses["Installed extension is up to date"], "FAIL")
 
 
 class TestCheckClaudeDesktopLog(unittest.TestCase):

@@ -158,16 +158,40 @@ jobs:
       - name: Pre-warm uv venv
         run: uv run --directory . --extra mcp -m secondmind --help
 
-      - name: Real MCP handshake over stdio — run.sh (POSIX)
+      # SECONDMIND_REPO_DIR must be set explicitly here, pointing at a copy
+      # of the extension folder OUTSIDE the checked-out repo -- this is
+      # what actually reproduces the real failure mode (Claude Desktop
+      # copies claude-desktop-extension/ into its own private storage on
+      # install, so the launcher can no longer find the repo by looking at
+      # its own location). Running the launcher from inside the repo
+      # checkout would never have caught this bug in the first place.
+      - name: Real MCP handshake over stdio — run.sh (POSIX), launcher copied elsewhere
         if: runner.os != 'Windows'
         run: |
-          chmod +x claude-desktop-extension/run.sh
+          COPY_DIR="$(mktemp -d)/copied-extension"
+          cp -r claude-desktop-extension "$COPY_DIR"
+          chmod +x "$COPY_DIR/run.sh"
+          export SECONDMIND_REPO_DIR="$GITHUB_WORKSPACE"
           export SECONDMIND_VAULT="$(mktemp -d)/vault"
           export SECONDMIND_INDEX_DB="$(mktemp -d)/index.db"
           echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2026-07-28","capabilities":{},"clientInfo":{"name":"ci","version":"1.0"}}}' \
-            | claude-desktop-extension/run.sh > response.json
+            | "$COPY_DIR/run.sh" > response.json
           cat response.json
           grep -q '"result"' response.json
+        shell: bash
+
+      - name: run.sh rejects a missing SECONDMIND_REPO_DIR cleanly (POSIX)
+        if: runner.os != 'Windows'
+        run: |
+          set +e
+          output=$(echo '{}' | claude-desktop-extension/run.sh 2>&1)
+          exit_code=$?
+          echo "$output"
+          if [ $exit_code -eq 0 ]; then
+            echo "::error::run.sh should have failed without SECONDMIND_REPO_DIR set"
+            exit 1
+          fi
+          echo "$output" | grep -q "SECONDMIND_REPO_DIR is not set"
         shell: bash
 
       # Real bug found and fixed via a scratch-branch investigation on a
@@ -177,13 +201,21 @@ jobs:
       # is a macOS/Linux-only alias. This step is what catches a
       # regression of that exact bug, since the earlier launcher checks
       # above never exercised claude-desktop-extension/ at all.
-      - name: Real MCP handshake over stdio — run.bat (Windows)
+      # SECONDMIND_REPO_DIR must point at a copy of the extension folder
+      # OUTSIDE the checked-out repo -- this reproduces the real failure
+      # mode (Claude Desktop copies claude-desktop-extension\ into its
+      # own private storage on install, so the launcher can no longer
+      # find the repo by looking at its own location).
+      - name: Real MCP handshake over stdio — run.bat (Windows), launcher copied elsewhere
         if: runner.os == 'Windows'
         run: |
+          mkdir "%RUNNER_TEMP%\copied-extension"
+          xcopy /e /i /y claude-desktop-extension "%RUNNER_TEMP%\copied-extension"
+          set SECONDMIND_REPO_DIR=%GITHUB_WORKSPACE%
           set SECONDMIND_VAULT=%RUNNER_TEMP%\vault-ext
           set SECONDMIND_INDEX_DB=%RUNNER_TEMP%\index-ext.db
           echo {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2026-07-28","capabilities":{},"clientInfo":{"name":"ci","version":"1.0"}}} > request.jsonl
-          call claude-desktop-extension\run.bat < request.jsonl > response.json
+          call "%RUNNER_TEMP%\copied-extension\run.bat" < request.jsonl > response.json
           type response.json
           findstr /c:"\"result\"" response.json >nul
           if %ERRORLEVEL% NEQ 0 (
@@ -192,9 +224,28 @@ jobs:
           )
         shell: cmd
 
+      - name: run.bat rejects a missing SECONDMIND_REPO_DIR cleanly (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          set SECONDMIND_REPO_DIR=
+          call claude-desktop-extension\run.bat < nul > repo-dir-missing.txt 2>&1
+          set RESULT=%ERRORLEVEL%
+          type repo-dir-missing.txt
+          if %RESULT% EQU 0 (
+            echo ::error::run.bat should have failed without SECONDMIND_REPO_DIR set
+            exit /b 1
+          )
+          findstr /c:"SECONDMIND_REPO_DIR is not set" repo-dir-missing.txt >nul
+          if %ERRORLEVEL% NEQ 0 (
+            echo ::error::expected a clear "SECONDMIND_REPO_DIR is not set" message
+            exit /b 1
+          )
+        shell: cmd
+
       - name: uv-not-found path fails cleanly, not with a crash (Windows)
         if: runner.os == 'Windows'
         run: |
+          set SECONDMIND_REPO_DIR=%GITHUB_WORKSPACE%
           set PATH=C:\Windows\System32
           set USERPROFILE=%RUNNER_TEMP%\fake-home-no-uv
           call claude-desktop-extension\run.bat < nul > fallback.txt 2>&1

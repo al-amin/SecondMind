@@ -7,10 +7,30 @@
 # Homebrew's /opt/homebrew/bin never being on the extension process's PATH).
 # Probing common install locations here means the extension works on any
 # user's machine without a hardcoded personal path.
+#
+# REPO_ROOT comes from SECONDMIND_REPO_DIR (the manifest's repo_dir
+# user_config field), never from this script's own location -- Claude
+# Desktop copies the whole claude-desktop-extension/ folder into its own
+# private storage on install, so "the directory above this script" is
+# Claude Desktop's extension cache, not the actual cloned repo. Confirmed
+# by reproducing this exact failure: running this script from a plain
+# `cp -r` copy elsewhere produced "ModuleNotFoundError: No module named
+# 'secondmind_mcp'" because --directory pointed at the wrong place.
 set -eu
 
-SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
+REPO_ROOT="${SECONDMIND_REPO_DIR:-}"
+if [ -z "$REPO_ROOT" ]; then
+    echo "secondmind: SECONDMIND_REPO_DIR is not set." >&2
+    echo "Open Claude Desktop -> Settings -> Extensions -> secondmind -> Configure," >&2
+    echo "and set 'SecondMind repo location' to the folder where you cloned" >&2
+    echo "https://github.com/al-amin/SecondMind (the folder containing pyproject.toml)." >&2
+    exit 1
+fi
+if [ ! -f "$REPO_ROOT/pyproject.toml" ]; then
+    echo "secondmind: '$REPO_ROOT' does not look like a SecondMind clone (no pyproject.toml)." >&2
+    echo "Check the 'SecondMind repo location' value in Claude Desktop's Configure dialog." >&2
+    exit 1
+fi
 
 find_uv() {
     if command -v uv >/dev/null 2>&1; then
