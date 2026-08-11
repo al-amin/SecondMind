@@ -237,3 +237,11 @@ git checkout v1.0.0
 ## License
 
 Apache 2.0 — see [`LICENSE`](./LICENSE).
+
+---
+
+<div align="center">
+
+Built with ❤️ by [Al Amin](https://github.com/al-amin)
+
+</div>
