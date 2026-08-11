@@ -15,6 +15,14 @@ once — a fact, a decision, a lesson — and any MCP-compatible AI client can r
 any machine, with nothing to install beyond a stock Python interpreter and
 [`uv`](https://docs.astral.sh/uv/getting-started/installation/).
 
+<div align="center">
+
+### [▶ Watch the demo](https://youtu.be/8Bj2PdPscmY)
+
+[![SecondMind demo — Persistent AI Memory Across Devices](https://img.youtube.com/vi/8Bj2PdPscmY/maxresdefault.jpg)](https://youtu.be/8Bj2PdPscmY)
+
+</div>
+
 ---
 
 ## Table of contents
